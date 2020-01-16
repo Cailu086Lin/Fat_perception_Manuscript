@@ -1,0 +1,3476 @@
+---
+title: "fat-2019-08-02"
+author: "Cailu Lin"
+date: "2019Äê8ÔÂ2ÈÕ"
+output: html_document:
+  toc: yes
+---
+
+
+
+```{r include=FALSE, echo=FALSE}
+##Packages
+pacman::p_load(plyr, dplyr, reshape2, data.table, ggplot2, cowplot, ggpubr,readr,GGally, Hmisc, stargazer, tidyverse, MatchIt, optmatch, Zelig, readr, tidyverse, grid, ggpubr, gridExtra,lmerTest, easyGgplot2, multcompView, lsmeans, Rmisc, moments, plotly, later, mime, lme4, sjPlot,nlme)
+
+```
+
+checking sample size for pheno and geno
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+mkids<-read.csv("milkgenoIDs.csv", header=T)
+chpids<-read.csv("chipgenoIDs.csv", header=T)
+#how many people phenotyped for chip
+df1<-df %>%
+  drop_na(X2.5.CornOilNoFA_Fatty)%>%
+          distinct(UniqueID, .keep_all=T)
+table(df1$Sex)
+
+summary(df1$TestingAge)
+sd(df1$TestingAge)
+
+#how many people phenotyped for milk
+df2<-df %>%
+  drop_na(TotalCorrect)%>%
+          distinct(UniqueID, .keep_all=T)
+table(df2$Sex)
+summary(df2$TestingAge)
+sd(df2$TestingAge)
+
+##find genotyped and imputed for chip
+genotypedids<-read.csv("genotypedids.csv", header=T)
+imputedids<-read.csv("imputedgenoids.csv", header=T)
+chipgenoids<-read.csv("chipgenoIDs.csv", header=T)
+df1geno<-df1[df1$UniqueID %in% genotypedids$UniqueID,]
+df1geno1<-df1geno[df1geno$UniqueID %in%chipgenoids$UniqueID,]
+table(df1geno1$MZDZ)
+
+df1imp<-df1[df1$UniqueID %in% imputedids$UniqueID,]
+df1imp1<-df1imp[df1imp$UniqueID %in% chipgenoids$UniqueID,]
+
+##find genotyped and imputed for milk
+milkgenoids<-read.csv("milkgenoIDs.csv", header=T)
+df2geno<-df2[df2$UniqueID %in% genotypedids$UniqueID,]
+table(df2geno$MZDZ)
+df2imp<-df2[df2$UniqueID %in% imputedids$UniqueID,]
+
+```
+
+
+Descriptive sensory data
+```{r include=FALSE, echo=FALSE}
+#Supplemental Figure 2
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+df1<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,
+         PTC_Like9,
+         PTC_Bitter9,
+         NaCl_Salty3,
+         NaCl_Like3,
+         Sucrose_Sweet2,
+         Sucrose_Like2,
+         X5.CornOil_0.2.Palmitic_Liking,
+         X5.CornOil_0.2.Palmitic_Fatty,
+         X2.5.CornOil_0.2.Palmitic_Liking,
+         X2.5.CornOil_0.2.Palmitic_Fatty,
+         X15.CornOilNoFA_Liking,
+         X15.CornOilNoFA_Fatty,
+         X10.CornOilNoFA_Liking,
+         X10.CornOilNoFA_Fatty,
+         X5.CornOilNoFA_Liking,
+         X5.CornOilNoFA_Fatty,
+         X2.5.CornOilNoFA_Liking,
+         X2.5.CornOilNoFA_Fatty)%>%
+  gather(key, value, -SubjectID)
+
+
+data_summary <- function(x) {
+   m <- mean(x)
+   ymin <- m-sd(x)
+   ymax <- m+sd(x)
+   return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+p<-ggplot(df1, aes(x=key, y=value))+geom_violin()+coord_flip()+xlab("")+ylab("Rating score")+scale_x_discrete(limits=c("PTC_Like9","PTC_Bitter9","NaCl_Salty3","NaCl_Like3","Sucrose_Sweet2","Sucrose_Like2","X5.CornOil_0.2.Palmitic_Liking","X5.CornOil_0.2.Palmitic_Fatty","X2.5.CornOil_0.2.Palmitic_Liking","X2.5.CornOil_0.2.Palmitic_Fatty","X15.CornOilNoFA_Liking","X15.CornOilNoFA_Fatty","X10.CornOilNoFA_Liking","X10.CornOilNoFA_Fatty","X5.CornOilNoFA_Liking","X5.CornOilNoFA_Fatty","X2.5.CornOilNoFA_Liking","X2.5.CornOilNoFA_Fatty"), labels=c("PTC liking",
+         "PTC bitterness",
+         "NaCl liking" ,
+         "NaCl saltiness",
+         "Sucrose liking",
+         "Sucrose sweetness",
+         "Liking, 5% corn oil (0.2% FA)",
+         "Fattiness, 5% corn oil (0.2% FA)",
+         "Liking, 2.5% corn oil (0.2% FA)",
+         "Fattiness, 2.5% corn oil (0.2% FA)",
+         "Liking, 15% corn oil (NoFA)",
+         "Fattiness, 15% corn oil (NoFA)",
+         "Liking, 10% corn oil (NoFA)",
+         "Fattiness, 10% corn oil (NoFA)",
+         "Liking, 5% corn oil (NoFA)",
+         "Fattiness, 5% corn oil (NoFA)",
+         "Liking, 2.5% corn oil (NoFA)",
+         "Fattiness, 2.5% corn oil (NoFA)"))+theme(plot.margin = unit(c(0,0.2,0,-0.7), "cm"))+stat_summary(fun.data=data_summary, size = 0.2)
+  
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Supplemental_Fig2_descriptive.tif', p,  width = 14, height = 11, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+
+#Supplemental Figure 1 all six type chips in Linear Mixed Model
+
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+df1<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,Race, TestingAge,
+         X2.5.CornOilNoFA_Fatty,
+         X5.CornOilNoFA_Fatty,
+         X10.CornOilNoFA_Fatty,
+         X15.CornOilNoFA_Fatty,
+         X2.5.CornOil_0.2.Palmitic_Fatty,
+         X5.CornOil_0.2.Palmitic_Fatty)%>%
+   mutate(Race = ifelse(grepl("1", Race), "wh",
+ifelse(grepl("4", Race),"AA","Oth")))%>%
+  gather(key, value, -SubjectID, -Race,-TestingAge)%>%
+  mutate(key = recode(key, "X2.5.CornOil_0.2.Palmitic_Fatty"="2.5%+0.2%FA","X5.CornOil_0.2.Palmitic_Fatty"="5.0%+0.2%FA", 
+"X2.5.CornOilNoFA_Fatty"="2.5%",
+ "X5.CornOilNoFA_Fatty"="5.0%",
+"X10.CornOilNoFA_Fatty"="10%",
+"X15.CornOilNoFA_Fatty"="15%"))
+
+summary(lmer(value~key+Race+TestingAge+(1|SubjectID), data=df1))
+
+
+modelf = lmer(value~key+Race+TestingAge+(1|SubjectID), data=df1)
+leastsquaref = lsmeans(modelf,
+                     pairwise ~ key,
+                      adjust="tukey")
+
+fatty2<-data.frame(multcomp::cld(leastsquaref[[1]]))
+
+df2<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,Race, TestingAge,
+         X2.5.CornOilNoFA_Liking,
+         X5.CornOilNoFA_Liking,
+         X10.CornOilNoFA_Liking,
+         X15.CornOilNoFA_Liking,
+         X2.5.CornOil_0.2.Palmitic_Liking,
+         X5.CornOil_0.2.Palmitic_Liking)%>%
+  mutate(Race = ifelse(grepl("1", Race), "wh",
+ifelse(grepl("4", Race),"AA","Oth")))%>%
+  gather(key, value, -SubjectID, -Race, -TestingAge,)%>%
+  mutate(key = recode(key, "X2.5.CornOil_0.2.Palmitic_Liking"="2.5%+0.2%FA","X5.CornOil_0.2.Palmitic_Liking"="5.0%+0.2%FA", 
+"X2.5.CornOilNoFA_Liking"="2.5%",
+ "X5.CornOilNoFA_Liking"="5.0%",
+"X10.CornOilNoFA_Liking"="10%",
+"X15.CornOilNoFA_Liking"="15%"))
+
+
+summary(lmer(value~key+Race+TestingAge+(1|SubjectID), data=df2))
+
+
+modell = lmer(value~key+Race+TestingAge+(1|SubjectID), data=df2)
+leastsquarel = lsmeans(modell,
+                     pairwise ~ key,
+                      adjust="tukey")
+
+like2<-data.frame(multcomp::cld(leastsquarel[[1]]))
+
+fatty2$type<-"Fattiness"
+like2$type<-"Liking"
+dat<-bind_rows(fatty2, like2)
+dat$text=as.numeric(dat$.group)  
+dat<- mutate(dat, text=recode(text,"12"="ab","23"="bc","34"="cd","45"="de","1"="a","2"="b","3"="c","4"="d","5"="e") )
+           
+  
+dat$y=dat$lsmean+dat$SE+0.2
+
+dat$key<-factor(dat$key, levels=c("2.5%", "5.0%", "10%","15%","2.5%+0.2%FA", "5.0%+0.2%FA"))
+
+p<-ggplot(dat, aes(x=key,
+                y=lsmean,
+                group = 1)) + geom_line() +
+    geom_errorbar(aes(ymin=lsmean-SE,
+                      ymax=lsmean+SE),
+                   width=.2, size=0.7) +
+    geom_point(shape=16, size=4) + facet_wrap(.~type) + xlab("Corn oil concentration")+ylab("Rating score")+geom_text(data=dat, aes(x=key, y=y, label=text), size=4)+theme(strip.background = element_blank(), strip.text=element_text(size=14,face="bold"), legend.position = c(0.1, 0.8))+scale_x_discrete(limits=c("2.5%", "5.0%", "10%","15%","2.5%+0.2%FA", "5.0%+0.2%FA"), labels=c("2.5%", "5.0%", "10%","15%","2.5%\n0.2%FA", "5.0%\n0.2%FA"))+theme(panel.background = element_blank(), axis.line=element_line(size = 0.5, color = "black"), strip.background = element_blank(), legend.key=element_blank(), legend.background=element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank())
+
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Supplemental_Fig1_6types.tif', p,  width = 20, height = 9, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+#output stat summary
+colnames(df1)[5]<-"Fattiness"
+modelf = lmer(Fattiness~key+Race+TestingAge+(1|SubjectID), data=df1)
+colnames(df2)[5]<-"Liking"
+modell = lmer(Liking~key+Race+TestingAge+(1|SubjectID), data=df2)
+tmp<-tab_model(modelf, modell)
+tmp$file <- "S5 Figure_Stat_Summary.html"
+tmp
+
+#Figure2  liking vs taste rating scores
+#chips
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+df1<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,
+         X2.5.CornOilNoFA_Fatty,
+         X5.CornOilNoFA_Fatty,
+         X10.CornOilNoFA_Fatty,
+         X15.CornOilNoFA_Fatty,
+         X2.5.CornOil_0.2.Palmitic_Fatty,
+         X5.CornOil_0.2.Palmitic_Fatty)%>%
+  gather(key, value, -SubjectID)%>%
+  mutate(key = recode(key, "X2.5.CornOil_0.2.Palmitic_Fatty"="2.5%+0.2%FA","X5.CornOil_0.2.Palmitic_Fatty"="5.0%+0.2%FA", 
+"X2.5.CornOilNoFA_Fatty"="2.5%",
+ "X5.CornOilNoFA_Fatty"="5.0%",
+"X10.CornOilNoFA_Fatty"="10%",
+"X15.CornOilNoFA_Fatty"="15%"))
+
+df2<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,
+         X2.5.CornOilNoFA_Liking,
+         X5.CornOilNoFA_Liking,
+         X10.CornOilNoFA_Liking,
+         X15.CornOilNoFA_Liking,
+         X2.5.CornOil_0.2.Palmitic_Liking,
+         X5.CornOil_0.2.Palmitic_Liking)%>%
+  gather(key, value, -SubjectID)%>%
+  mutate(key = recode(key, "X2.5.CornOil_0.2.Palmitic_Liking"="2.5%+0.2%FA","X5.CornOil_0.2.Palmitic_Liking"="5.0%+0.2%FA", 
+"X2.5.CornOilNoFA_Liking"="2.5%",
+"X5.CornOilNoFA_Liking"="5.0%",
+"X10.CornOilNoFA_Liking"="10%",
+"X15.CornOilNoFA_Liking"="15%"))
+
+df3<-merge(df1, df2, by=c("SubjectID", "key"))
+df3$key<-factor(df3$key, levels=c("2.5%", "5.0%", "10%", "15%", "2.5%+0.2%FA","5.0%+0.2%FA"))
+
+p<-ggplot(df3, aes(x=value.x, y=value.y))+geom_point()+
+geom_smooth(method="lm")+ facet_wrap(.~key, ncol=3) +ylab("Liking rating score")+xlab("Fattiness") +ggpubr::stat_cor(method = "pearson", label.sep=" ", label.x = 1, label.y = 9, color="red", size=3)+theme(strip.background = element_rect(fill="white"), strip.text = element_text(face="bold"),panel.background = element_blank(),axis.line=element_line(size = 0.5, color = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank()) 
+
+
+#other solutions
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+df1<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,
+        PTC_Bitter9,
+         Sucrose_Sweet2,
+         NaCl_Salty3)%>%
+  gather(key, value, -SubjectID)%>%
+  mutate(key = recode(key, "PTC_Bitter9"="PTC","Sucrose_Sweet2"="Sucrose", 
+"NaCl_Salty3"="NaCl"))
+
+df2<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,
+         PTC_Like9,
+         Sucrose_Like2,
+         NaCl_Like3)%>%
+  gather(key, value, -SubjectID)%>%
+  mutate(key = recode(key, "PTC_Like9"="PTC","Sucrose_Like2"="Sucrose", 
+"NaCl_Like3"="NaCl"))
+
+df3<-merge(df1, df2, by=c("SubjectID", "key"))
+
+df3$key<-factor(df3$key, levels=c("Sucrose","NaCl", "PTC"))
+
+p1<-ggplot(df3, aes(x=value.x,, y=value.y))+geom_point()+
+geom_smooth(method="lm")+ facet_wrap(.~key, ncol=3) +ylab("Liking rating score")+xlab("Sweetness            Saltiness               Bitterness") +ggpubr::stat_cor(method = "pearson", label.sep=" ", label.x = 1, label.y = 9, color="red", size=3)+theme(strip.background = element_rect(fill="white"), strip.text = element_text(face="bold"),panel.background = element_blank(), axis.line=element_line(size = 0.5, color = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank())
+
+
+
+#library("gridExtra")
+fig<-ggarrange(p, p1, heights = c(2, 1),labels = c("A", "B"), ncol = 1, nrow = 2)
+
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Figure2_LinkevsFatty.tif', fig,  width = 12.5, height = 21, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+
+#Figure 1. Corn oil and corn oil spiked with 0.2% hexadecanoic acid (FA) modify ratings of fattiness and liking of potato chips.(A) Potato chips with more corn oil plus added FA increased fattiness and decreased liking. (B) As corn oil concentration (2.5%, 5.0%,10%, and 15%, without added FA) increased, fattiness ratings increased linearly but liking changed in a J-curve: participants liked potato chips more with corn oil at the lowest and highest concentrations (2.5% and 15%). The points and bars show least square mean (LSM) and standard error of rating scores, and different letters (a, b, and c) indicate a significant LSM difference between groups. 
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+
+fatty<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID, Race, TestingAge,
+         X2.5.CornOilNoFA_Fatty,
+         X5.CornOilNoFA_Fatty,
+         X2.5.CornOil_0.2.Palmitic_Fatty,
+         X5.CornOil_0.2.Palmitic_Fatty)%>%
+  mutate(Race = ifelse(grepl("1", Race), "wh",
+ifelse(grepl("4", Race),"AA","Oth")))%>%
+  gather(key, value, -SubjectID,-Race,-TestingAge)
+
+fatty$key1<-fatty$key
+fatty1<-mutate(fatty, key1 = ifelse(grepl("X2.5.CornOil_0.2.Palmitic_Fatty", key1), "yes",
+ifelse(grepl("X5.CornOil_0.2.Palmitic_Fatty", key1), "yes","no")))%>%
+  mutate(key=recode(key,
+                     "X2.5.CornOil_0.2.Palmitic_Fatty"="2.5% corn oil",
+                      "X2.5.CornOilNoFA_Fatty"="2.5% corn oil",
+                      "X5.CornOil_0.2.Palmitic_Fatty"="5.0% corn oil",
+                      "X5.CornOilNoFA_Fatty"="5.0% corn oil"))
+
+summary(lmer(value~key*key1+Race+TestingAge+(1|SubjectID), data=fatty1))
+
+
+
+modelf = lmer(value~key*key1+Race+TestingAge+(1|SubjectID), data=fatty1)
+leastsquaref = lsmeans(modelf,
+                     pairwise ~ key:key1,
+                      adjust="tukey")
+
+fatty2<-data.frame(multcomp::cld(leastsquaref[[1]]))
+
+#
+like<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,Race, TestingAge,
+         X2.5.CornOilNoFA_Liking,
+         X5.CornOilNoFA_Liking,
+         X2.5.CornOil_0.2.Palmitic_Liking,
+         X5.CornOil_0.2.Palmitic_Liking)%>%
+  mutate(Race = ifelse(grepl("1", Race), "wh",
+ifelse(grepl("4", Race),"AA","Oth")))%>%
+  gather(key, value, -SubjectID, -Race, -TestingAge)
+
+like$key1<-like$key
+like1<-mutate(like, key1 = ifelse(grepl("X2.5.CornOil_0.2.Palmitic_Liking", key1), "yes",
+ifelse(grepl("X5.CornOil_0.2.Palmitic_Liking", key1), "yes","no")))%>%
+  mutate(key=recode(key,
+                     "X2.5.CornOil_0.2.Palmitic_Liking"="2.5% corn oil",
+                      "X2.5.CornOilNoFA_Liking"="2.5% corn oil",
+                      "X5.CornOil_0.2.Palmitic_Liking"="5.0% corn oil",
+                      "X5.CornOilNoFA_Liking"="5.0% corn oil"))
+
+
+summary(lmer(value~key*key1+Race+TestingAge+(1|SubjectID), data=like1))
+
+
+modell = lmer(value~key*key1+Race+TestingAge+(1|SubjectID), data=like1)
+leastsquarel = lsmeans(modell,
+                     pairwise ~ key:key1,
+                      adjust="tukey")
+
+like2<-data.frame(multcomp::cld(leastsquarel[[1]]))
+
+fatty2$type<-"Fattiness"
+like2$type<-"Liking"
+dat<-bind_rows(fatty2, like2)%>%
+  mutate(key=ifelse(grepl("2.5% corn oil", key), "2.5%", "5.0%"))%>%
+  mutate(.group=ifelse(grepl("12", .group),"ab",ifelse(grepl( "23", .group),"bc",ifelse(grepl("1", .group), "a",ifelse(grepl( "2", .group),"b", "c")))))
+  
+dat$y=dat$lsmean+dat$SE+0.1
+
+
+p1<-ggplot(dat, aes(x=key,
+                y=lsmean,
+                color=key1)) + geom_line(aes(
+                color=key1, group = key1)) +
+    geom_errorbar(aes(ymin=lsmean-SE,
+                      ymax=lsmean+SE),
+                   width=.2, size=0.7) +
+    geom_point(shape=16, size=4) + facet_wrap(.~type) + xlab("")+ylab("Rating score")+geom_text(data=dat, aes(x=key, y=y, label=.group), size=4)+theme(strip.background = element_blank(), strip.text=element_text(size=14,face="bold"), legend.position = c(0.1, 0.8))+labs(color="0.2% FA")+
+  theme(panel.background = element_blank(), axis.line=element_line(size = 0.5, color = "black"), strip.background = element_blank(), legend.key=element_blank(), legend.background=element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank())
+
+
+#make table to report results
+colnames(fatty1)[5]<-"Fattiness"
+modelf = lmer(Fattiness~key*key1+Race+TestingAge+(1|SubjectID), data=fatty1)
+colnames(like1)[5]<-"Liking"
+modell = lmer(Liking~key*key1+Race+TestingAge+(1|SubjectID), data=like1)
+tmp<-tab_model(modelf, modell)
+tmp$file <- "Fig1A_Stat_Summary.html"
+tmp
+
+
+##four concentrations in Linear Mixed Model.
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+fatty<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,Race,TestingAge,
+         X2.5.CornOilNoFA_Fatty,
+         X5.CornOilNoFA_Fatty,
+         X10.CornOilNoFA_Fatty,
+         X15.CornOilNoFA_Fatty)%>%
+  mutate(Race = ifelse(grepl("1", Race), "wh",
+ifelse(grepl("4", Race),"AA","Oth")))%>%
+  gather(key, value, -SubjectID,-Race,-TestingAge)
+
+
+summary(lmer(value ~ key+Race+TestingAge+(1|SubjectID), data=fatty))
+
+
+model = lmer(value ~ key+Race+TestingAge+(1|SubjectID), data=fatty)
+leastsquare = lsmeans(model,
+                     pairwise ~ key,
+                      adjust="tukey")
+
+sumFatty<-data.frame(multcomp::cld(leastsquare[[1]]))
+
+
+###
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+like<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,Race,TestingAge,
+         X2.5.CornOilNoFA_Liking,
+         X5.CornOilNoFA_Liking,
+         X10.CornOilNoFA_Liking,
+         X15.CornOilNoFA_Liking)%>%
+  mutate(Race = ifelse(grepl("1", Race), "wh",
+ifelse(grepl("4", Race),"AA","Oth")))%>%
+  gather(key, value, -SubjectID,-Race,-TestingAge)
+
+
+summary(lmer(value ~ key+Race+TestingAge+(1|SubjectID), data=like))
+
+
+
+model2 = lmer(value ~ key+Race+TestingAge+(1|SubjectID), data=like)
+leastsquare2 = lsmeans(model2,
+                     pairwise ~ key,
+                      adjust="tukey")
+
+sumLike<-data.frame(multcomp::cld(leastsquare2[[1]]))
+
+sumFatty$type<-"Fattiness"
+sumLike$type<-"Liking"
+
+df1<-bind_rows(sumFatty, sumLike)%>%
+  mutate(key=ifelse(grepl("X2.5.CornOilNoFA", key), "X2.5.CornOilNoFA", ifelse(grepl("X5.CornOilNoFA", key), "X5.CornOilNoFA", ifelse(grepl("X10.CornOilNoFA", key), "X10.CornOilNoFA", "X15.CornOilNoFA"))))%>%
+  mutate(.group=ifelse(grepl("12", .group),"ab",ifelse(grepl( "23", .group),"bc",ifelse(grepl("1", .group), "a",ifelse(grepl( "2", .group),"b", "c")))))
+  
+df1$y=df1$lsmean+df1$SE+0.1
+
+
+p2<- ggplot(df1,aes(x=key,
+                y=lsmean, group=1)) +
+    geom_errorbar(aes(ymin=lsmean-SE,
+                      ymax=lsmean+SE),
+                   width=.2, size=0.7) +
+    geom_point(shape=16, size=4) + geom_line()+ facet_wrap(.~type, ncol=2)+xlab("Corn oil concentration") + ylab("Rating score")+theme(legend.position = "none")+scale_x_discrete(limits=c(
+         "X2.5.CornOilNoFA",
+         "X5.CornOilNoFA",
+         "X10.CornOilNoFA",
+         "X15.CornOilNoFA"), labels=c("2.5%",
+         "5.0%",
+         "10%",
+         "15%"))+theme(strip.background = element_blank(), strip.text=element_blank(),) +geom_text(data=df1, aes(x=key, y=y, label=.group), size=4, show.legend=FALSE)+
+  theme(panel.background = element_rect(fill = 'white', color = 'white'), axis.line=element_line(size = 0.5, color = "black"), strip.background = element_rect(fill ="white", color = "white"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank())
+
+#output stat summary
+colnames(fatty)[5]<-"Fattiness"
+fatty<-fatty%>%
+  mutate(key=ifelse(grepl("X2.5.CornOilNoFA", key), "X2.5.CornOilNoFA", ifelse(grepl("X5.CornOilNoFA", key), "X5.CornOilNoFA", ifelse(grepl("X10.CornOilNoFA", key), "X10.CornOilNoFA", "X15.CornOilNoFA"))))
+model = lmer(Fattiness ~ key+Race+TestingAge+(1|SubjectID), data=fatty)
+colnames(like)[5]<-"Liking"
+like<-like%>%
+  mutate(key=ifelse(grepl("X2.5.CornOilNoFA", key), "X2.5.CornOilNoFA", ifelse(grepl("X5.CornOilNoFA", key), "X5.CornOilNoFA", ifelse(grepl("X10.CornOilNoFA", key), "X10.CornOilNoFA", "X15.CornOilNoFA"))))
+model2 = lmer(Liking ~ key+Race+TestingAge+(1|SubjectID), data=like)
+tmp<-tab_model(model, model2)
+tmp$file <- "Fig1B_Stat_Summary.html"
+tmp
+
+
+#g <- arrangeGrob(p1, p2, ncol = 1)
+g<-ggarrange(p1, p2, 
+          labels = c("A", "B"),
+          ncol = 1, nrow = 2)
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Figure1_FA_v2.tif', g,  width = 13.5, height = 16, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE,  compression = "lzw")
+dev.off()
+
+
+
+#Supplemental Figure3_Not used
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+fatty<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,Race,TestingAge,
+         X2.5.CornOilNoFA_Fatty,
+         X5.CornOilNoFA_Fatty,
+         X10.CornOilNoFA_Fatty,
+         X15.CornOilNoFA_Fatty,
+         X2.5.CornOil_0.2.Palmitic_Fatty,
+         X5.CornOil_0.2.Palmitic_Fatty)%>%
+  mutate(Race = ifelse(grepl("1", Race), "wh",
+ifelse(grepl("4", Race),"AA","Oth")))%>%
+  gather(key, value, -SubjectID,-Race,-TestingAge)
+
+
+summary(aov(lm(value ~ key+Race+TestingAge, data=fatty)))
+sumFatty = summarySE(fatty,
+                measurevar="value",
+                groupvars=c("key"))
+sumFatty
+
+model = lm(value ~ key+Race+TestingAge,
+           data=fatty)
+leastsquare = lsmeans(model,
+                     pairwise ~ key,
+                      adjust="tukey")
+
+multcomp::cld(leastsquare[[1]])
+
+
+###
+like<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,Race,TestingAge,
+         X2.5.CornOilNoFA_Liking,
+         X5.CornOilNoFA_Liking,
+         X10.CornOilNoFA_Liking,
+         X15.CornOilNoFA_Liking,
+         X2.5.CornOil_0.2.Palmitic_Liking,
+         X5.CornOil_0.2.Palmitic_Liking)%>%
+  mutate(Race = ifelse(grepl("1", Race), "wh",
+ifelse(grepl("4", Race),"AA","Oth")))%>%
+  gather(key, value, -SubjectID,-Race,-TestingAge)
+
+
+summary(aov(lm(value ~ key+Race+TestingAge, data=like)))
+sumLike = summarySE(like,
+                measurevar="value",
+                groupvars=c("key"))
+sumLike
+
+summary(aov(value~key+Race+TestingAge, data=like))
+
+model = lm(value ~ key+Race+TestingAge,
+           data=like)
+leastsquare = lsmeans(model,
+                     pairwise ~ key,
+                      adjust="tukey")
+
+
+multcomp::cld(leastsquare[[1]])
+
+sumFatty$type<-"Fattiness"
+sumLike$type<-"Liking"
+df<-bind_rows(sumFatty, sumLike)
+##
+
+fatty$type<-"Fattiness"
+like$type<-"Liking"
+df1<-bind_rows(fatty, like)%>%
+  mutate(key=ifelse(grepl("X2.5.CornOilNoFA", key), "X2.5.CornOilNoFA",
+                    ifelse(grepl("X5.CornOilNoFA", key), "X5.CornOilNoFA",
+                           ifelse(grepl("X10.CornOilNoFA", key), "X10.CornOilNoFA",
+                                  ifelse(grepl("X15.CornOilNoFA", key), "X15.CornOilNoFA",ifelse(grepl("X2.5.CornOil_0.2.Palmitic", key), "X2.5.CornOil_0.2.Palmitic","X5.CornOil_0.2.Palmitic"))))))
+
+p<- ggplot(df1, aes(x=key, y=value)) +geom_boxplot(outlier.size=-1)+ facet_wrap(.~type, ncol=2)+ coord_flip()+xlab("")+ylim(0,8)+ylab("Sensory rating score")+scale_x_discrete(limits=c(
+         "X2.5.CornOilNoFA",
+         "X5.CornOilNoFA",
+         "X10.CornOilNoFA",
+         "X15.CornOilNoFA",
+         "X2.5.CornOil_0.2.Palmitic",
+         "X5.CornOil_0.2.Palmitic"), labels=c("2.5% corn oil (NoFA)",
+         "5.0% corn oil (NoFA)",
+         "10% corn oil (NoFA)",
+         "15% corn oil (NoFA)",
+         "2.5% corn oil (0.2%FA)",
+         "5.0 corn oil (0.2%FA"))+theme(strip.background = element_rect(fill="white"), strip.text=element_text(face="bold")) 
+df_text <- data.frame(g=rep(c("A", "B", "C", "D", "E", "F")), x=c(1,2,3,4,5,6,1,2,3,4,5,6), y=c(6.3,6.9,7.5,7.5,7.5,7.5,7.5,7.5,7.5,7.5,7.5,7.5),
+                      type=rep(c("Fattiness","Fattiness","Fattiness","Fattiness","Fattiness","Fattiness", "Liking","Liking","Liking","Liking","Liking","Liking"), each=1),
+                      text=c("a", "ab", "bc", "bc", "bc", "c", "a", "bc", "abc", "ab", "d", "cd"))
+
+p1<-p+geom_text(data=df_text, aes(x=x, y=y, label=text),hjust=0, size=4, show.legend=FALSE)+facet_wrap(.~type)+theme(plot.margin = unit(c(0,0.3,0,-0.7), "cm"))
+
+
+postscript(colormodel="cmyk")
+ggsave(filename ='SupplementFigure2_FA.tif', p1,  width = 17, height = 7, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE,  compression = "lzw")
+dev.off()
+
+
+
+##Supplemental Figure 3.Test-retest for all traits.
+
+
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+df2<-df%>%
+  distinct(UniqueID, .keep_all = T)
+dup<-df[!(df$SubjectID %in% df2$SubjectID),]
+dup2 <-df[df$UniqueID %in% dup$UniqueID, ]
+
+dat <-dup2%>%
+  select(UniqueID,
+         Testing.Day,
+         X2.5.CornOilNoFA_Fatty,
+         X2.5.CornOilNoFA_Liking,
+         X5.CornOilNoFA_Fatty,
+         X5.CornOilNoFA_Liking,
+         X10.CornOilNoFA_Fatty,
+         X10.CornOilNoFA_Liking,
+         X15.CornOilNoFA_Fatty,
+         X15.CornOilNoFA_Liking,
+         X2.5.CornOil_0.2.Palmitic_Fatty,
+         X2.5.CornOil_0.2.Palmitic_Liking,
+         X5.CornOil_0.2.Palmitic_Fatty,
+         X5.CornOil_0.2.Palmitic_Liking,
+         Sucrose_Like2,
+         Sucrose_Sweet2,
+         NaCl_Salty3,
+         NaCl_Like3, 
+         PTC_Bitter9,
+         PTC_Like9,
+         TotalCorrect)%>%
+  gather(key, value, -UniqueID,-Testing.Day)
+ 
+dat1<-merge(subset(dat,Testing.Day=="Saturday"), subset(dat,Testing.Day=="Sunday"), by=c("UniqueID", "key"))%>%
+  mutate(key= recode(key,"TotalCorrect"="Milk correct",  
+         "X2.5.CornOilNoFA_Fatty"="Fattiness (2.5% NoFA)",
+         "X2.5.CornOilNoFA_Liking"="Liking (2.5% NoFA)",
+         "X5.CornOilNoFA_Fatty"="Fattiness (5.0% NoFA)",
+         "X5.CornOilNoFA_Liking"="Liking (5.0% NoFA)",
+         "X10.CornOilNoFA_Fatty"="Fattiness (10% NoFA)",
+         "X10.CornOilNoFA_Liking"="Liking (10% NoFA)",
+         "X15.CornOilNoFA_Fatty"="Fattiness (15% NoFA)",
+         "X15.CornOilNoFA_Liking"="Liking (15% NoFA)",
+         "X2.5.CornOil_0.2.Palmitic_Fatty"="Fattiness (2.5%+0.2%FA)",
+         "X2.5.CornOil_0.2.Palmitic_Liking"="Liking (2.5%+0.2%FA)",
+         "X5.CornOil_0.2.Palmitic_Fatty"="Fattiness (5.0%+0.2%FA)",
+         "X5.CornOil_0.2.Palmitic_Liking"="Liking (5.0%+0.2%FA)",
+         "PTC_Bitter9"="PTC bitterness",
+         "PTC_Like9"="PTC liking",
+         "Sucrose_Sweet2"="Sucrose sweetness",
+         "Sucrose_Like2"="Sucrose liking",
+         "NaCl_Salty3"="Nacl saltiness",
+         "NaCl_Like3"="NaCl liking"))
+
+dat1$key1<-factor(dat1$key, levels=c(
+"Fattiness (2.5% NoFA)",
+"Liking (2.5% NoFA)",
+"Fattiness (5.0% NoFA)",
+"Liking (5.0% NoFA)",
+"Fattiness (10% NoFA)",
+"Liking (10% NoFA)",
+"Fattiness (15% NoFA)",
+"Liking (15% NoFA)",
+"Fattiness (2.5%+0.2%FA)",
+"Liking (2.5%+0.2%FA)",
+"Fattiness (5.0%+0.2%FA)",
+"Liking (5.0%+0.2%FA)",
+"Sucrose sweetness",
+"Sucrose liking",
+"Nacl saltiness",
+"NaCl liking",
+"PTC bitterness",
+"PTC liking",
+"Milk correct"))
+
+p<-ggplot(dat1, aes(x=value.x, y=value.y))+geom_point()+
+geom_smooth(method="lm")+ facet_wrap(.~key1, ncol=3) +ylab("Rating score (retest)")+xlab("Rating score (test)") +ggpubr::stat_cor(method = "pearson", label.sep = "", label.x = 1.5, label.y = 9, color="red", size=3)+theme(strip.background = element_rect(fill="white"))+theme(panel.background = element_blank(), axis.line=element_line(size = 0.5, color = "black"), strip.background = element_blank(), legend.key=element_blank(), legend.background=element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank()) 
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Supplemental_Fig3_test_retest1.tif', p,  width = 16, height = 26, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+```
+##check sex, race and age effect
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+
+df<-mutate(df, Race = ifelse(grepl("1", Race), "1",
+ifelse(grepl("4", Race), "4","0")))
+
+df2<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(Sex, Race, TestingAge,TotalCorrect, Correct_Fat.First, Correct_Fat.Second, X2.5.CornOilNoFA_Fatty, X2.5.CornOilNoFA_Liking, X5.CornOilNoFA_Fatty, X5.CornOilNoFA_Liking,
+ X10.CornOilNoFA_Fatty,
+ X10.CornOilNoFA_Liking,
+ X15.CornOilNoFA_Fatty,
+ X15.CornOilNoFA_Liking,
+ X2.5.CornOil_0.2.Palmitic_Fatty,
+ X2.5.CornOil_0.2.Palmitic_Liking,
+ X5.CornOil_0.2.Palmitic_Fatty,
+ X5.CornOil_0.2.Palmitic_Liking,
+ PTC_Bitter9,
+ PTC_Like9,
+ Sucrose_Sweet2,
+ Sucrose_Like2,
+ NaCl_Salty3,
+ NaCl_Like3)%>%
+  gather(key, value, -Sex, -Race,-TestingAge)
+
+aov.out<-aov(value~Sex+Race+TestingAge, data=subset(df2, key==names(table(df2$key))[1]))
+aov.out <- broom::tidy(etaSquared(aov.out, type=1, anova=TRUE))
+aov.out["trait"] <- names(table(df2$key))[1]
+aov.out <- aov.out[, c(9, 1, 5, 7:8)]
+
+for(i in names(table(df2$key))){
+  aov.out1<-aov(value~ Sex+Race+TestingAge, data=subset(df2, key==i))
+  aov.out1 <- broom::tidy(etaSquared(aov.out1, type=1, anova=TRUE))
+  aov.out1["trait"]<-i
+  aov.out1 <- aov.out1[, c(9, 1, 5, 7:8)]
+  aov.out <-rbind(aov.out, aov.out1)
+}
+
+aov.out<-aov.out[-(1:4),]
+write.csv(aov.out, "Result.anova.csv", row.names=F)
+
+
+# Supplemental Figure 4. Pearson correlations between age and sensory measures for potato chips and other taste stimuli. Young participants were more sensitive to taste stimuli than were older participants. (plot age and 6 significant traits)
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+
+df<-mutate(df, Race = ifelse(grepl("1", Race), "1",
+ifelse(grepl("4", Race), "4","0")))
+
+df3<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(UniqueID,TestingAge,X2.5.CornOilNoFA_Liking, X5.CornOilNoFA_Liking, X15.CornOilNoFA_Liking, PTC_Like9,Sucrose_Sweet2,NaCl_Salty3)%>%
+  gather(key, value, -UniqueID,-TestingAge)%>%
+  mutate(key=recode(key,"X2.5.CornOilNoFA_Liking"="Liking, 2.5% (NoFA)","X5.CornOilNoFA_Liking"="Liking, 5.0% (NoFA)","X15.CornOilNoFA_Liking"="Liking, 15% (NoFA)","NaCl_Salty3"="NaCl saltiness", "Sucrose_Sweet2"="Sucrose sweetness","PTC_Like9"="PTC liking"))
+ 
+df3$key<-factor(df3$key, levels=c("Liking, 2.5% (NoFA)",
+                                  "Liking, 5.0% (NoFA)",
+                                  "Liking, 15% (NoFA)",
+                                  "Sucrose sweetness",
+                                  "NaCl saltiness",
+                                  "PTC liking"))
+                                  
+ 
+p<-ggplot(df3, aes(x=TestingAge, y=value))+geom_point()+
+geom_smooth(method="lm")+ facet_wrap(.~key, ncol=3) +ylab("Rating score")+xlab("Age, years") +stat_cor(method = "pearson", label.sep = "",label.x = 27, label.y = 9, color="red", size=3)+theme(strip.background = element_rect(fill="white")) +theme(panel.background = element_blank(), axis.line=element_line(size = 0.5, color = "black"), strip.background = element_blank(), legend.key=element_blank(), legend.background=element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank()) 
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Supplemental_Fig4_tratsbyage.tiff', p,  width = 14, height = 10, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+
+#Supplemental Figure 5. Least square mean (LSM) and standard error of sensory measures by race. EA=European Americans, AA=African Americans, Oth=others (Asian, Hispanic, Native American, mixed). Different letters (a, b) show a significant LSM difference.(plot race and 5 significant traits)
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+df4<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(UniqueID,Race,TestingAge,TotalCorrect,X5.CornOilNoFA_Fatty,Sucrose_Like2, PTC_Like9, PTC_Bitter9)%>%
+  gather(key, value, -UniqueID, -Race,-TestingAge)%>%
+  mutate(Race = ifelse(grepl("1", Race), "EA",
+ifelse(grepl("4", Race), "AA","Oth")))%>%
+  mutate(key=recode(key, "TotalCorrect"="Milk total correct", "X5.CornOilNoFA_Fatty"="Fattiness 5% (NoFA)","Sucrose_Like2"="Sucrose liking", "PTC_Like9"="PTC liking", "PTC_Bitter9"="PTC bitterness"))
+
+#do-test
+model = lm(value ~ Race,data=subset(df4, key=="Milk total correct"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+milktotal<-data.frame(multcomp::cld(leastsquare[[1]]))
+milktotal["key"]<-"Milk total correct"
+
+
+model = lm(value ~ Race,data=subset(df4, key=="Fattiness 5% (NoFA)"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+fat<-data.frame(multcomp::cld(leastsquare[[1]]))
+fat["key"]<-"Fattiness 5% (NoFA)"
+
+
+model = lm(value ~ Race,data=subset(df4, key=="Sucrose liking"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+su<-data.frame(multcomp::cld(leastsquare[[1]]))
+su["key"]<-"Sucrose liking"
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="PTC liking"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+PTC_liking<-data.frame(multcomp::cld(leastsquare[[1]]))
+PTC_liking["key"]<-"PTC liking"
+
+model = lm(value ~ Race,data=subset(df4, key=="PTC bitterness"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+PTC_b<-data.frame(multcomp::cld(leastsquare[[1]]))
+PTC_b["key"]<-"PTC bitterness"
+
+df5<-rbind(milktotal,fat, su, PTC_liking, PTC_b)%>%
+  mutate(.group=ifelse(grepl("12", .group), "ab",
+ifelse(grepl("1", .group), "a","b")))
+
+
+df5$key<-factor(df5$key, levels=c("Fattiness 5% (NoFA)",
+                                  "Sucrose liking",
+                                  "PTC bitterness",
+                                  "PTC liking",
+                                  "Milk total correct"))
+df5$y=df5$lsmean+df5$SE+0.8
+
+level_order <- c('EA', 'AA', 'Oth')
+p<-ggplot(df5, aes(factor(Race, level = level_order), lsmean))+ geom_bar(stat="identity", position=position_dodge()) + 
+  geom_errorbar(aes(ymin=lsmean, ymax=lsmean+SE), width=.2,
+                 position=position_dodge(.9)) + xlab("")+ylab("Rating score")+ facet_wrap(.~key, ncol=1)+theme(strip.background = element_rect(fill="white")) + geom_text(
+  data    = df5,
+  mapping = aes(x = Race, y = y, label = .group)
+)+theme(panel.background = element_blank(), axis.line=element_line(size = 0.5, color = "black"), strip.background = element_blank(), legend.key=element_blank(), legend.background=element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank()) 
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Supplemental_Figy_tratsbyrace.tiff', p,  width = 4.2, height = 16, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+```
+
+
+Figure 3. Strong and positive interrelated correlations of ratings of fattiness (A) and liking (B) across the six types of potato chips: scatter plots (lower left), density distributions (diagonal line), and correlations (upper right). FA=fatty acid (hexadecanoic acid). ( Correlations across 6 types of chipFigure 3)
+```{r include=FALSE, echo=FALSE}
+pacman::p_load(GGally)
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(UniqueID, X2.5.CornOilNoFA_Fatty, X2.5.CornOilNoFA_Liking, X5.CornOilNoFA_Fatty, X5.CornOilNoFA_Liking,
+ X10.CornOilNoFA_Fatty,
+ X10.CornOilNoFA_Liking,
+ X15.CornOilNoFA_Fatty,
+ X15.CornOilNoFA_Liking,
+ X2.5.CornOil_0.2.Palmitic_Fatty,
+ X2.5.CornOil_0.2.Palmitic_Liking,
+ X5.CornOil_0.2.Palmitic_Fatty,
+ X5.CornOil_0.2.Palmitic_Liking)
+
+fatty<-df[ , grepl( "Fatty" , names( df ) ) ]
+like<-df[ , grepl( "Liking" , names( df ) ) ]
+colnames(like)<-c("2.5%","5.0%","10%","15%", "2.5%+0.2%FA", "5.0%+0.2%FA")
+colnames(fatty)<-c("2.5%","5.0%","10%","15%", "2.5%+0.2%FA", "5.0%+0.2%FA")
+
+p1<-ggpairs(like, xlab="Rating score", ylab="Rating score",title ="Fattiness")+
+  theme(plot.title = element_text(color="blue", size=20, face="bold", hjust=0.5))
+p2<-ggpairs(fatty, xlab="Rating score", ylab="Rating score", title ="Liking")+
+  theme(plot.title = element_text(color="blue", size=20, face="bold", hjust=0.5))
+
+p<-cowplot::plot_grid(
+  ggmatrix_gtable(p1),
+  ggmatrix_gtable(p2),
+  nrow = 2,  labels=c('A', 'B'))
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Figure3.tif', p, width =18, height = 33, units ="cm",dpi = 600, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+```
+
+Supplemental Figure 6. Most participants had difficultly discriminating milk fat content, with near chance levels overall. (A) Histogram of milk fat discrimination scores. The dashed white line shows probability of success, which is near the chance level of 5, but it is significantly different from the chance level, p < 0.001. (B) No significant correlations were observed between twin 1 and twin 2 for milk discrimination for either DZ or MZ twins; thus, no heritability for milk fat discrimination scores was calculated.
+```{r include=FALSE, echo=FALSE}
+
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+df1<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(SubjectID,TwinID,MZDZ,Co_Twin.ID,
+         TotalCorrect)%>%
+ drop_na()
+  
+tw1<-df1[df1$TwinID==1,]
+tw2<-df1[df1$TwinID==2,]
+d<-merge(tw1, tw2, by.x="SubjectID", by.y="Co_Twin.ID")%>%
+  select(SubjectID, MZDZ.x,TotalCorrect.x,TotalCorrect.y)
+
+scaleFUN <- function(x) sprintf("%.0f", x)
+p<-ggscatter(
+  d, x = "TotalCorrect.x", y = "TotalCorrect.y") +
+  stat_smooth(method = "lm",
+    se = TRUE, fullrange = TRUE
+    )  +ylab("Discrimination score (twin 2)")+xlab("Discrimination score (twin 1)") + facet_wrap(.~MZDZ.x, ncol=2)+ stat_cor(label.x.npc = 0.52, label.sep = "", label.y.npc =0, hjust = 0)+theme(strip.background = element_blank())+theme(legend.title = element_blank())+theme(text=element_text(size=14, face="bold"))+scale_y_continuous(labels=scaleFUN)
+
+
+p2<-ggplot2.histogram(data=df1, xName='TotalCorrect',
+    legendPosition="top",bins = 30,
+    alpha=0.5, addDensity=TRUE, addMeanLine=TRUE, meanLineColor="white", meanLineSize=1.5) + xlab("Discrimination score")+ ylab("Density")+ annotate(geom="text", x=1.2, y=0.4, label="exact binomial test\n n = 332\n probability of success = 5.3\n p < 0.0001\n skewness  0.042 \n kurtosis  2.64", color="black") +theme(text=element_text(size=12, face="bold"))+
+  theme(panel.background = element_rect(fill = 'white', color = 'white'), axis.line=element_line(size = 0.5, color = "black"), strip.background = element_rect(fill ="white", color = "white"))+scale_y_continuous(expand = c(0, 0))
+p2
+ 
+t.test(df1$TotalCorrect, mu=5) 
+g<-ggarrange(p2, p, 
+          labels = c("A", "B"),
+          ncol = 1, nrow = 2)
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Supplemental_Fig6_milk.tiff', g,  width = 17, height = 17.5, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+
+```
+Calculate Cronbach's alpha
+```{r}
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+
+fatty<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(X2.5.CornOilNoFA_Fatty,X5.CornOilNoFA_Fatty,X10.CornOilNoFA_Fatty,X15.CornOilNoFA_Fatty,X2.5.CornOil_0.2.Palmitic_Fatty,X5.CornOil_0.2.Palmitic_Fatty)
+
+alpha(fatty)
+
+like<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select( X2.5.CornOilNoFA_Liking, X5.CornOilNoFA_Liking, X10.CornOilNoFA_Liking, X15.CornOilNoFA_Liking, X2.5.CornOil_0.2.Palmitic_Liking,X5.CornOil_0.2.Palmitic_Liking)
+
+alpha(like)
+```
+
+
+##V2 focusing chips only, just for data exploration, not included in the MS.
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+
+df<-mutate(df, Race = ifelse(grepl("1", Race), "1",
+ifelse(grepl("4", Race), "4","0")))
+
+df3<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(UniqueID,TestingAge,X2.5.CornOilNoFA_Fatty,X5.CornOilNoFA_Fatty,X10.CornOilNoFA_Fatty,X15.CornOilNoFA_Fatty,X2.5.CornOil_0.2.Palmitic_Fatty,X5.CornOil_0.2.Palmitic_Fatty, X2.5.CornOilNoFA_Liking, X5.CornOilNoFA_Liking, X10.CornOilNoFA_Liking, X15.CornOilNoFA_Liking, X2.5.CornOil_0.2.Palmitic_Liking,X5.CornOil_0.2.Palmitic_Liking)%>%
+  gather(key, value, -UniqueID,-TestingAge)%>%
+  mutate(key=recode(key,"X2.5.CornOilNoFA_Fatty"="Fattiness,2.5%(NoFA)","X5.CornOilNoFA_Fatty"="Fattiness,5.0%(NoFA)","X10.CornOilNoFA_Fatty"="Fattiness,10%(NoFA)","X15.CornOilNoFA_Fatty"="Fattiness,15%(NoFA)","X2.5.CornOil_0.2.Palmitic_Fatty"="Fattiness,2.5%+0.2%FA", "X5.CornOil_0.2.Palmitic_Fatty"="Fattiness,5.0%+0.2%FA",
+ "X2.5.CornOilNoFA_Liking"="Liking,2.5%(NoFA)","X5.CornOilNoFA_Liking"="Liking,5.0%(NoFA)","X10.CornOilNoFA_Liking"="Liking,10%(NoFA)","X15.CornOilNoFA_Liking"="Liking,15%(NoFA)","X2.5.CornOil_0.2.Palmitic_Liking"="Liking,2.5%+0.2%FA", "X5.CornOil_0.2.Palmitic_Liking"="Liking,5.0%+0.2%FA"))
+ 
+df3$key<-factor(df3$key, levels=c("Liking,2.5%(NoFA)",
+                                  "Liking,5.0%(NoFA)",
+                                  "Liking,10%(NoFA)",
+                                  "Liking,15%(NoFA)",
+                                  "Liking,2.5%+0.2%FA",
+                                  "Liking,5.0%+0.2%FA",
+                                  "Fattiness,2.5%(NoFA)",
+                                  "Fattiness,5.0%(NoFA)",
+                                  "Fattiness,10%(NoFA)",
+                                  "Fattiness,15%(NoFA)",
+                                  "Fattiness,2.5%+0.2%FA",
+                                  "Fattiness,5.0%+0.2%FA"
+                                  ))
+                                  
+ 
+p<-ggplot(df3, aes(x=TestingAge, y=value))+geom_point()+
+geom_smooth(method="lm")+ facet_wrap(.~key, ncol=3) +ylab("Retest rating score")+xlab("Age, year") +stat_cor(method = "pearson", label.x = 27, label.y = 9, color="red", size=3)+theme(strip.background = element_rect(fill="white")) 
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Supplemental_Figx_tratsbyage_v2.tiff', p,  width = 16, height = 20, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+
+# plot race and 6 significant traits
+df4<-df%>%
+  distinct(UniqueID, .keep_all = T)%>%
+  select(UniqueID,Race,TestingAge,X2.5.CornOilNoFA_Fatty,X5.CornOilNoFA_Fatty,X10.CornOilNoFA_Fatty,X15.CornOilNoFA_Fatty,X2.5.CornOil_0.2.Palmitic_Fatty,X5.CornOil_0.2.Palmitic_Fatty, X2.5.CornOilNoFA_Liking, X5.CornOilNoFA_Liking, X10.CornOilNoFA_Liking, X15.CornOilNoFA_Liking, X2.5.CornOil_0.2.Palmitic_Liking,X5.CornOil_0.2.Palmitic_Liking)%>%
+  gather(key, value, -UniqueID, -Race, -TestingAge)%>%
+  mutate(Race = ifelse(grepl("1", Race), "Wh",
+ifelse(grepl("4", Race), "AA","Oth")))%>%
+  mutate(key=recode(key, "X2.5.CornOilNoFA_Fatty"="Fattiness,2.5%(NoFA)","X5.CornOilNoFA_Fatty"="Fattiness,5.0%(NoFA)","X10.CornOilNoFA_Fatty"="Fattiness,10%(NoFA)","X15.CornOilNoFA_Fatty"="Fattiness,15%(NoFA)","X2.5.CornOil_0.2.Palmitic_Fatty"="Fattiness,2.5%+0.2%FA", "X5.CornOil_0.2.Palmitic_Fatty"="Fattiness,5.0%+0.2%FA",
+ "X2.5.CornOilNoFA_Liking"="Liking,2.5%(NoFA)","X5.CornOilNoFA_Liking"="Liking,5.0%(NoFA)","X10.CornOilNoFA_Liking"="Liking,10%(NoFA)","X15.CornOilNoFA_Liking"="Liking,15%(NoFA)","X2.5.CornOil_0.2.Palmitic_Liking"="Liking,2.5%+0.2%FA", "X5.CornOil_0.2.Palmitic_Liking"="Liking,5.0%+0.2%FA"))
+
+#do-test
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Fattiness,2.5%(NoFA)"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x25NoFA<-data.frame(cld(leastsquare[[1]]))
+x25NoFA["key"]<-"Fattiness,2.5%(NoFA)"
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Fattiness,5.0%(NoFA)"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+
+x5NoFA<-data.frame(cld(leastsquare[[1]]))
+x5NoFA["key"]<-"Fattiness,5.0%(NoFA)"
+
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Fattiness,10%(NoFA)"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x10NoFA<-data.frame(cld(leastsquare[[1]]))
+x10NoFA["key"]<-"Fattiness,10%(NoFA)"
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Fattiness,15%(NoFA)"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x15NoFA<-data.frame(cld(leastsquare[[1]]))
+x15NoFA["key"]<-"Fattiness,15%(NoFA)"
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Fattiness,2.5%+0.2%FA"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x25FA<-data.frame(cld(leastsquare[[1]]))
+x25FA["key"]<-"Fattiness,2.5%+0.2%FA"
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Fattiness,5.0%+0.2%FA"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x5FA<-data.frame(cld(leastsquare[[1]]))
+x5FA["key"]<-"Fattiness,5.0%+0.2%FA"
+
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Liking,2.5%(NoFA)"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x25NoFA2<-data.frame(cld(leastsquare[[1]]))
+x25NoFA2["key"]<-"Liking,2.5%(NoFA)"
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Liking,5.0%(NoFA)"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+
+x5NoFA2<-data.frame(cld(leastsquare[[1]]))
+x5NoFA2["key"]<-"Liking,5.0%(NoFA)"
+
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Liking,10%(NoFA)"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x10NoFA2<-data.frame(cld(leastsquare[[1]]))
+x10NoFA2["key"]<-"Liking,10%(NoFA)"
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Liking,15%(NoFA)"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x15NoFA2<-data.frame(cld(leastsquare[[1]]))
+x15NoFA2["key"]<-"Liking,15%(NoFA)"
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Liking,2.5%+0.2%FA"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x25FA2<-data.frame(cld(leastsquare[[1]]))
+x25FA2["key"]<-"Liking,2.5%+0.2%FA"
+
+model = lm(value ~ Race+TestingAge,data=subset(df4, key=="Liking,5.0%+0.2%FA"))
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+x5FA2<-data.frame(cld(leastsquare[[1]]))
+x5FA2["key"]<-"Liking,5.0%+0.2%FA"
+
+
+
+df5<-rbind(x25NoFA,x5NoFA,x10NoFA,x15NoFA,x25FA, x5FA, x25NoFA2,x5NoFA2,x10NoFA2,x15NoFA2,x25FA2, x5FA2)%>%
+  mutate(.group=ifelse(grepl("12", .group), "ab",
+ifelse(grepl("1", .group), "a","b")))
+
+
+df5$key<-factor(df5$key, levels=c("Liking,2.5%(NoFA)",
+                                  "Liking,5.0%(NoFA)",
+                                  "Liking,10%(NoFA)",
+                                  "Liking,15%(NoFA)",
+                                  "Liking,2.5%+0.2%FA",
+                                  "Liking,5.0%+0.2%FA",
+                                  "Fattiness,2.5%(NoFA)",
+                                  "Fattiness,5.0%(NoFA)",
+                                  "Fattiness,10%(NoFA)",
+                                  "Fattiness,15%(NoFA)",
+                                  "Fattiness,2.5%+0.2%FA",
+                                  "Fattiness,5.0%+0.2%FA"))
+df5$y=df5$lsmean+df5$SE+0.8
+
+level_order <- c('Wh', 'AA', 'Oth')
+p<-ggplot(df5, aes(factor(Race, level = level_order), lsmean))+ geom_bar(stat="identity", position=position_dodge()) + 
+  geom_errorbar(aes(ymin=lsmean, ymax=lsmean+SE), width=.2,
+                 position=position_dodge(.9)) + xlab("")+ylab("Rating score")+ facet_wrap(.~key, ncol=3)+theme(strip.background = element_rect(fill="white")) + geom_text(
+  data    = df5,
+  mapping = aes(x = Race, y = y, label = .group)
+)
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Supplemental_Figy_tratsbyrace_v2.tiff', p,  width = 16, height = 16, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+```
+
+Gene expression Figure 7. Box plots of taste tissue expression abundance of genes near the peak statistical associations from the GWAS (novel hits) and for candidate genes (shown in blue) known from prior studies to contribute to fat perception. Two genes, ZNF729 and GATA3-AS1 (shown in red), were commonly detected by both uvGWAS and mvGWAS in the present study. RPKM=reads per kilo base per million mapped reads. RNU6-356P had no expression in any sample. Outliers are not shown. Red asterisks indicate genes with statistically higher expression level compared with other genes in taste tissue (p < 0.05/351 = 0.000142, Bonferroni corrections for multiple tests). 
+```{r include=FALSE, echo=FALSE}
+dat<-read.csv("gene_matrix_RPKM_version3.csv", header=T)
+target<-read.csv("fatgenelist.csv", header=T)
+d<-dat[dat$gene_names_for_result %in% target$alter,]
+d1<-merge(d, target, by.x= "gene_names_for_result", by.y="alter")%>%
+  select(gene_names_for_result.y,FUN1341,FUN1342,FUN9,FUN17,FUN1344,FUN22)%>%
+  gather(key, value, -gene_names_for_result.y)
+
+a<-c("red",
+"red",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"black",
+"blue",
+"blue",
+"blue",
+"blue",
+"blue",
+"blue",
+"blue",
+"blue",
+"blue")
+  
+
+p<-ggplot(d1, aes(gene_names_for_result.y, value))+geom_boxplot(outlier.size=-1) +theme(axis.text.y = element_text(face="italic",color = a))+ coord_flip()+xlab("")+ylab("Expression, RPKM") +scale_x_discrete(limits=c("ZNF729", 
+"GATA3-AS1",
+"RNU6-356P",
+"RP5-1112F19.2",
+"NPSR1-AS1",
+"VWC2L",
+"RPL21P112",
+"RP11-575F12.1",
+"GRIN2B",
+"PRKRIRP9",
+"RIMS2",
+"SYT9",
+"RP11-354K4.1",
+"LRP1B",
+"AC091705.1",
+"RP11-106M7.4",
+"RP11-736K20.6",
+"CLEC11A",
+"MLLT3",
+"MCTP1",
+"GLI3",
+"RAPGEF2",
+"GNAT3",
+"CD36",
+"GPR43",
+"GPR84",
+"TRPM5",
+"GPR120",
+"GPR40",
+"KCNA2",
+"GPR41"
+))+theme(plot.margin = unit(c(0,0.2,0,-0.7), "cm"))+annotate(geom="text", x=20.7, y=2.8, label="*", color="red", size=8)+
+annotate(geom="text", x=21.7, y=4.1, label="*", color="red", size=8)+
+annotate(geom="text", x=22.7, y=3, label="*", color="red", size=8)+
+annotate(geom="text", x=23.7, y=1.75, label="*", color="red", size=8)+annotate(geom="text", x=19.7, y=1.9, label="*", color="red", size=8)+
+annotate(geom="text", x=18.7, y=1.55, label="*", color="red", size=8)+
+annotate(geom="text", x=24.7, y=1.55, label="*", color="red", size=8)
+
+
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Figure_geneExpression_v2.tif', p,  width = 10, height = 14, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+#do-test
+model = lm(value ~ gene_names_for_result.y, data=d1)
+leastsquare = lsmeans(model,
+                     pairwise ~ gene_names_for_result.y,
+                     adjust="tukey")
+
+cld(leastsquare[[1]])
+
+```
+
+
+Effect for candiadte genes,Figure 6 and Supplemental_Fig8
+
+```{r include=FALSE, echo=FALSE}
+scaleFUN <- function(x) sprintf("%.0f", x)
+df<-read.csv("candidategens_v3.csv", header=T)
+
+df1<-subset(df,TRAIT=="Liking")
+df1$Liking <-df1$CONCENTRATION
+
+df1$Liking<-factor(df1$Liking, levels=c("2.5% NoFA", "5.0% NoFA", "10% NoFA", "15% NoFA", "2.5% with 0.2% FA", "5.0% with 0.2% FA", "mvGWAS"))
+
+
+p <- ggplot(df1, aes(BETA, -log10(P), color=Liking, shape=Method))+geom_point()+facet_wrap(.~GENE, ncol=9)+geom_hline(aes(yintercept = -log10(0.05)), color = "red", linetype = "dashed") + 
+  geom_errorbarh(aes(xmin=BETA-SE, xmax=BETA+SE)) +theme(strip.background = element_blank(), strip.text = element_text(face="bold.italic", size = 7),panel.background = element_blank(),axis.line=element_line(size = 0.5, color = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank(), legend.key=element_blank())+xlab("Effect size, beta¡Àse")+ylab("-log(p-value)")+scale_x_continuous(labels=scaleFUN, breaks=c(-1, 0, 1))+scale_shape_discrete(name="")
+
+
+df2<-subset(df,TRAIT=="Fattiness")
+df2$Fattiness <-df1$CONCENTRATION
+
+
+df2$Fattiness<-factor(df2$Fattiness, levels=c("2.5% NoFA", "5.0% NoFA", "10% NoFA", "15% NoFA", "2.5% with 0.2% FA", "5.0% with 0.2% FA", "mvGWAS"))
+p1 <- ggplot(df2, aes(BETA, -log10(P), color=Fattiness, shape=Method))+geom_point()+facet_wrap(.~ GENE, ncol=9)+geom_hline(aes(yintercept = -log10(0.05)), color = "red", linetype = "dashed") + 
+  geom_errorbarh(aes(xmin=BETA-SE, xmax=BETA+SE)) +theme(strip.background = element_blank(), strip.text = element_text(face="bold.italic", size=7), panel.background = element_blank(),axis.line=element_line(size = 0.5, color = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank(), legend.key=element_blank())+xlab("Effect size, beta¡Àse")+ylab("-log(p-value)")+scale_x_continuous(labels=scaleFUN, breaks=c(-1, 0, 1))+scale_shape_discrete(name="")
+
+g<-ggarrange(p, p1, 
+          labels = c("A", "B"),
+          ncol = 1, nrow = 2)
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Supplemental_Figx_geneffect_V3.tiff', g,  width = 18, height = 20, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+
+##do main Figure for CD36 and TRPM5
+scaleFUN <- function(x) sprintf("%.1f", x)
+
+df<-read.csv("candidategens_v3.csv", header=T)
+df<-df[df$GENE=="CD36"|df$GENE=="TRPM5",]
+
+
+df1<-subset(df,TRAIT=="Liking")
+df1$Liking <-df1$CONCENTRATION
+
+df1$Liking<-factor(df1$Liking, levels=c("2.5% NoFA", "5.0% NoFA", "10% NoFA", "15% NoFA", "2.5% with 0.2% FA", "5.0% with 0.2% FA", "mvGWAS"))
+
+p <- ggplot(df1, aes(BETA, -log10(P), color=Liking, shape=Method))+geom_point()+facet_wrap(.~GENE, ncol=2)+geom_hline(aes(yintercept = -log10(0.05)), color = "red", linetype = "dashed") + 
+  geom_errorbarh(aes(xmin=BETA-SE, xmax=BETA+SE)) +theme(strip.background = element_blank(), strip.text = element_text(face="bold.italic"), panel.background = element_blank(),axis.line=element_line(size = 0.5, color = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank(), legend.key=element_blank())+xlab("")+ylab("-log(p-value)")+ scale_y_continuous(labels=scaleFUN)+scale_x_continuous(labels=scaleFUN, breaks=c(-0.5,  0.5))+scale_shape_discrete(name="")
+
+
+df2<-subset(df,TRAIT=="Fattiness")
+df2$Fattiness <-df1$CONCENTRATION
+
+df2$Fattiness<-factor(df2$Fattiness, levels=c("2.5% NoFA", "5.0% NoFA", "10% NoFA", "15% NoFA", "2.5% with 0.2% FA", "5.0% with 0.2% FA", "mvGWAS"))
+p1 <- ggplot(df2, aes(BETA, -log10(P), color=Fattiness, shape=Method))+geom_point()+facet_wrap(.~GENE, ncol=2)+geom_hline(aes(yintercept = -log10(0.05)), color = "red", linetype = "dashed") + 
+  geom_errorbarh(aes(xmin=BETA-SE, xmax=BETA+SE)) +theme(strip.background = element_blank(), strip.text = element_text(face="bold.italic"), panel.background = element_blank(),axis.line=element_line(size = 0.5, color = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank(), legend.key=element_blank())+xlab("Effect size, beta¡Àse")+ylab("-log(p-value)")+scale_x_continuous(labels=scaleFUN, breaks=c(-0.5,  0.5))+scale_shape_discrete(name="")+scale_y_continuous(labels=scaleFUN)
+
+
+
+#C
+df<-read.csv("candidategens_v3.csv", header=T)
+df1 <- df%>%
+  filter(P<0.05)
+df2<-data.frame(t(table(df1$GENE)))
+
+p2<-ggplot(df2, aes(x=reorder(Var2,-Freq), y=Freq))+geom_bar(stat="identity", fill="black")+xlab("")+ylab("Counts (p<0.05)")+theme(axis.text.x=element_text(face="italic", angle=60, vjust=1, hjust=1)) + scale_y_continuous(expand = c(0, 0))+theme(panel.background = element_blank(),axis.line=element_line(size = 0.5, color = "black"), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border= element_blank())
+
+g<-ggarrange(p2, p, p1,
+          labels = c("A", "B", "C"),
+          ncol = 1, nrow = 3)
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Fig6_geneffect_V2.tiff', g,  width = 12.5, height = 23, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE, compression = "lzw")
+dev.off()
+```
+
+#heritability analysis for milk and potato chips (PTC too for comparison) 
+#age - race - sex effects on milk and chips
+#Whether milk scores relates to habitual milk intake
+
+
+```{r  include=FALSE, echo=FALSE}
+#check milk, Figure 1 for the report
+dat<-read.csv("qry_Lin2018_09.csv", header=T)
+#dat<-filter(dat, !(SP%in%3))
+
+milk<-dat%>% drop_na(Year)
+y2016<-filter(milk, Year=="2016")
+y2016<-distinct(y2016, UniqueID, .keep_all=T)
+y2017<-filter(milk, Year=="2017")
+y2017<-distinct(y2017, UniqueID, .keep_all=T)
+y2018<-filter(milk, Year=="2018")
+y2018<-distinct(y2018, UniqueID, .keep_all=T)
+milk1<-rbind(y2016,rbind(y2017, y2018))
+milk1<-milk1%>% drop_na(TotalCorrect)
+
+
+##plot histogram
+#milk1 <- milk %>% mutate(Year = recode(Year, "2016" = "Y2016", "2017" = "Y2017", "2018" = "Y2018")) no needed.
+
+
+p1<-ggplot2.histogram(data=milk1, xName='TotalCorrect',bins = 30,
+    groupName='Year', legendPosition="top",
+    alpha=0.5, addDensity=TRUE, addMeanLine=TRUE, meanLineColor="white", meanLineSize=1.5) + ggtitle("A")+ xlab("")+annotate(geom="text", x=5.25, y=0.2, label="2018", color="black")+ annotate(geom="text", x=5.5, y=0.61, label="2016", color="black")+annotate(geom="text", x=6.4, y=0.57, label="2017", color="black")
+
+p1
+
+##Only for 2018
+#Add an additional density plot modeled on Figure 1 but with only data from 2018. 
+
+#New stats. If possible compare the density plot with the normal distribution - is there skewness (fat tail to the right) showing the people who ARE able to discriminate the milk samples? 
+
+#Compute more new stats. Arising from the above issue, please test whether the average milk correct score departs from chance (5 as chance versus slightly more than five as we observe in 2018)
+
+d <-y2018 %>% drop_na(TotalCorrect)
+#another awy coumputed nr curve
+#muhat <-mean(d$TotalCorrect)
+#sdhat <-sd(d$TotalCorrect)
+#nsamp <- nrow(d$TotalCorrect)
+#denarg <- list(mean = muhat, sd = sdhat)
+#stat_function(fun = dnorm, args = denarg, size=2, col = 'blue')
+
+skewness(d$TotalCorrect)
+kurtosis(d$TotalCorrect)
+
+p2a<-ggplot(d, aes(x = TotalCorrect), binwidth = 2) +
+geom_histogram(aes(y = ..density..), fill = 'red', alpha = 0.5) +
+geom_density(colour = 'blue') + xlab(expression(bold('Milk total correct'))) +ylab(expression(bold('Density')))
+
+
+p2<-ggplot2.histogram(data=d, xName='TotalCorrect',
+    legendPosition="top",bins = 30,
+    alpha=0.5, addDensity=TRUE, addMeanLine=TRUE, meanLineColor="white", meanLineSize=1.5) + xlab("Milk total correct score")+ annotate(geom="text", x=1, y=0.442, label="One Sample t-test\n mu=5\n t = 3.08, p = 0.002", color="black")+annotate(geom="text", x=9, y=0.4, label="2018 data\n \nskewness 0.042 \n kurtosis 2.64", color="black")+ggtitle("B")
+
+p2
+ 
+t.test(y2018$TotalCorrect, mu=5) 
+
+
+
+x<-ggqqplot(d$TotalCorrect)+annotate(geom="text", x=1, y=0.45, label="shapiro-Wilk normality test\n W = 0.98, p = 2.8e-05", color="black")+annotate(geom="text", x=-2, y=13, label="2018", color="black")
+
+shapiro.test(d$TotalCorrect)
+
+
+
+grid.arrange(p1, p2, x, ncol = 1)
+
+#version2
+grid.arrange(p1, p2, ncol = 1)
+
+##Option2, no_Density examples for fun
+p1<-ggplot2.histogram(data=milk, xName='Total...Correct',
+    groupName='Year', legendPosition="top",
+    alpha=0.5, addDensity=F,
+    addMeanLine=TRUE, meanLineColor="white", meanLineSize=1.5) 
+
+
+  p2<-ggplot2.histogram(data=milk, xName='..Correct_Fat.First',
+    groupName='Year', legendPosition="top",
+    alpha=0.5, addDensity=F,
+    addMeanLine=TRUE, meanLineColor="white", meanLineSize=1.5)
+  
+  p3<-ggplot2.histogram(data=milk, xName='..Correct_Fat.Second',
+    groupName='Year', legendPosition="top",
+    alpha=0.5, addDensity=F,
+    addMeanLine=TRUE, meanLineColor="white", meanLineSize=1.5)
+
+```
+
+
+#heritability: Instead of ACE h2 which is not reliable here owing to low DZ, please compute the r2 of MZ twin 1 vs twin 2 and use that value as a proxy of heritability. I realize this is a compromise but it may help to understand the data better. We have many more MZ than DZ twins
+
+
+```{r  include=FALSE, echo=FALSE}
+##Data format for ACE model
+
+##Year2018 chips
+df<-read.csv("qry_Lin2018_09_FatPhen_03.csv", header=T)
+df<-filter(df, Year=="2018")
+df1<-distinct(df, UniqueID, .keep_all=T)
+df2<-filter(df1,MZDZ=="MZ"|MZDZ=="DZ")
+dfMZ<-filter(df1,MZDZ=="MZ")
+dfDZ<-filter(df1,MZDZ=="DZ")
+tw1<-filter(df2, TwinID==1)
+tw2<-filter(df2, TwinID==2)
+dat<-merge(tw1, tw2, by.x="SubjectID",by.y="Co_Twin.ID", all=T)
+y18<-dat %>%
+  select(UniqueID.x, MZDZ.x,
+TestingAge.x,Sex.x,
+X2.5.CornOilNoFA_Fatty.x, X2.5.CornOilNoFA_Salty.x,
+X2.5.CornOilNoFA_Crispy.x,X2.5.CornOilNoFA_Liking.x,
+X15.CornOilNoFA_Fatty.x,X15.CornOilNoFA_Salty.x, 
+X15.CornOilNoFA_Crispy.x,X15.CornOilNoFA_Liking.x,
+X5.CornOilNoFA_Fatty.x,X5.CornOilNoFA_Salty.x,  
+X5.CornOilNoFA_Crispy.x,X5.CornOilNoFA_Liking.x, 
+X10.CornOilNoFA_Fatty.x,X10.CornOilNoFA_Salty.x, 
+X10.CornOilNoFA_Crispy.x,X10.CornOilNoFA_Liking.x,
+X5.CornOil_0.2.Palmitic_Fatty.x,X5.CornOil_0.2.Palmitic_Salty.x,
+X5.CornOil_0.2.Palmitic_Crispy.x, X5.CornOil_0.2.Palmitic_Liking.x,
+X2.5.CornOil_0.2.Palmitic_Fatty.x,X2.5.CornOil_0.2.Palmitic_Salty.x,
+X2.5.CornOil_0.2.Palmitic_Crispy.x, X2.5.CornOil_0.2.Palmitic_Liking.x,
+PTC_Bitter9.x, PTC_Like9.x, Sucrose_Like2.x, Sucrose_Sweet2.x,      NaCl_Like3.x, NaCl_Salty3.x,
+TestingAge.y, Sex.y,
+X2.5.CornOilNoFA_Fatty.y, X2.5.CornOilNoFA_Salty.y,
+X2.5.CornOilNoFA_Crispy.y,X2.5.CornOilNoFA_Liking.y,
+X15.CornOilNoFA_Fatty.y, X15.CornOilNoFA_Salty.y, 
+X15.CornOilNoFA_Crispy.y, X15.CornOilNoFA_Liking.y,
+X5.CornOilNoFA_Fatty.y,  X5.CornOilNoFA_Salty.y,  
+X5.CornOilNoFA_Crispy.y,X5.CornOilNoFA_Liking.y, 
+X10.CornOilNoFA_Fatty.y, X10.CornOilNoFA_Salty.y, 
+X10.CornOilNoFA_Crispy.y,X10.CornOilNoFA_Liking.y,
+X5.CornOil_0.2.Palmitic_Fatty.y, X5.CornOil_0.2.Palmitic_Salty.y,   
+X5.CornOil_0.2.Palmitic_Crispy.y, X5.CornOil_0.2.Palmitic_Liking.y,  
+X2.5.CornOil_0.2.Palmitic_Fatty.y, X2.5.CornOil_0.2.Palmitic_Salty.y, 
+X2.5.CornOil_0.2.Palmitic_Crispy.y, X2.5.CornOil_0.2.Palmitic_Liking.y,
+PTC_Bitter9.y, PTC_Like9.y, Sucrose_Like2.y, Sucrose_Sweet2.y, NaCl_Like3.y, NaCl_Salty3.y)
+
+y18a <- y18 %>% drop_na()
+colnames(y18a)<-c("FID"                             
+, "MZDZ"                          
+, "Age"                    
+, "Sex"                           
+, "X2_5CornOilNoFA_Fatty"        
+, "X2_5CornOilNoFA_Salty"        
+, "X2_5CornOilNoFA_Crispy"       
+, "X2_5CornOilNoFA_Liking"       
+, "X15CornOilNoFA_Fatty"        
+, "X15CornOilNoFA_Salty"        
+, "X15CornOilNoFA_Crispy"       
+, "X15CornOilNoFA_Liking"       
+, "X5CornOilNoFA_Fatty"         
+, "X5CornOilNoFA_Salty"         
+, "X5CornOilNoFA_Crispy"        
+, "X5CornOilNoFA_Liking"        
+, "X10CornOilNoFA_Fatty"        
+, "X10CornOilNoFA_Salty"        
+, "X10CornOilNoFA_Crispy"       
+, "X10CornOilNoFA_Liking"       
+, "X5CornOil_02Palmitic_Fatty" 
+, "X5CornOil_02Palmitic_Salty" 
+, "X5CornOil_02Palmitic_Crispy"
+, "X5CornOil_02Palmitic_Liking"
+, "X2_5CornOil_02Palmitic_Fatty"
+, "X2_5CornOil_02Palmitic_Salty"
+, "X2_5CornOil_02Palmitic_Crispy"
+, "X2_5CornOil_02Palmitic_Liking"
+, "PTC_Bitter"
+, "PTC_Like"
+, "Sucrose_Like"
+, "Sucrose_Sweet"      
+, "NaCl_Like" 
+, "NaCl_Salty"
+, "Age2"                    
+, "Sex2"                           
+, "X2_5CornOilNoFA_Fatty2"        
+, "X2_5CornOilNoFA_Salty2"        
+, "X2_5CornOilNoFA_Crispy2"       
+, "X2_5CornOilNoFA_Liking2"       
+, "X15CornOilNoFA_Fatty2"        
+, "X15CornOilNoFA_Salty2"        
+, "X15CornOilNoFA_Crispy2"       
+, "X15CornOilNoFA_Liking2"       
+, "X5CornOilNoFA_Fatty2"         
+, "X5CornOilNoFA_Salty2"         
+, "X5CornOilNoFA_Crispy2"        
+, "X5CornOilNoFA_Liking2"        
+, "X10CornOilNoFA_Fatty2"        
+, "X10CornOilNoFA_Salty2"        
+, "X10CornOilNoFA_Crispy2"       
+, "X10CornOilNoFA_Liking2"       
+, "X5CornOil_02Palmitic_Fatty2" 
+, "X5CornOil_02Palmitic_Salty2" 
+, "X5CornOil_02Palmitic_Crispy2"
+, "X5CornOil_02Palmitic_Liking2"
+, "X2_5CornOil_02Palmitic_Fatty2"
+, "X2_5CornOil_02Palmitic_Salty2"
+, "X2_5CornOil_02Palmitic_Crispy2"
+, "X2_5CornOil_02Palmitic_Liking2"
+, "PTC_Bitter2"
+, "PTC_Like2"
+, "Sucrose_Like2"
+, "Sucrose_Sweet2"      
+, "NaCl_Like2" 
+, "NaCl_Salty2"
+)
+y18a <- y18a %>% 
+  mutate(MZDZ = recode(MZDZ, "MZ" = "1", "DZ" = "2")) %>% 
+  mutate(Sex = recode(Sex, "F" = "2", "M" = "1")) %>%
+  mutate(Sex2 = recode(Sex2, "F" = "2", "M" = "1"))
+
+
+library(OpenMx)
+
+
+#Input Data
+
+myTwinData <- y18a
+
+
+T1Vars <- c("X2_5CornOilNoFA_Fatty"        
+, "X2_5CornOilNoFA_Salty"        
+, "X2_5CornOilNoFA_Crispy"       
+, "X2_5CornOilNoFA_Liking"       
+, "X15CornOilNoFA_Fatty"        
+, "X15CornOilNoFA_Salty"        
+, "X15CornOilNoFA_Crispy"       
+, "X15CornOilNoFA_Liking"       
+, "X5CornOilNoFA_Fatty"         
+, "X5CornOilNoFA_Salty"         
+, "X5CornOilNoFA_Crispy"        
+, "X5CornOilNoFA_Liking"        
+, "X10CornOilNoFA_Fatty"        
+, "X10CornOilNoFA_Salty"        
+, "X10CornOilNoFA_Crispy"       
+, "X10CornOilNoFA_Liking"       
+, "X5CornOil_02Palmitic_Fatty" 
+, "X5CornOil_02Palmitic_Salty" 
+, "X5CornOil_02Palmitic_Crispy"
+, "X5CornOil_02Palmitic_Liking"
+, "X2_5CornOil_02Palmitic_Fatty"
+, "X2_5CornOil_02Palmitic_Salty"
+, "X2_5CornOil_02Palmitic_Crispy"
+, "X2_5CornOil_02Palmitic_Liking"
+, "PTC_Bitter"
+, "PTC_Like"
+, "Sucrose_Like"
+, "Sucrose_Sweet"      
+, "NaCl_Like" 
+, "NaCl_Salty"
+)
+T2Vars <- c("X2_5CornOilNoFA_Fatty2"        
+, "X2_5CornOilNoFA_Salty2"        
+, "X2_5CornOilNoFA_Crispy2"       
+, "X2_5CornOilNoFA_Liking2"       
+, "X15CornOilNoFA_Fatty2"        
+, "X15CornOilNoFA_Salty2"        
+, "X15CornOilNoFA_Crispy2"       
+, "X15CornOilNoFA_Liking2"       
+, "X5CornOilNoFA_Fatty2"         
+, "X5CornOilNoFA_Salty2"         
+, "X5CornOilNoFA_Crispy2"        
+, "X5CornOilNoFA_Liking2"        
+, "X10CornOilNoFA_Fatty2"        
+, "X10CornOilNoFA_Salty2"        
+, "X10CornOilNoFA_Crispy2"       
+, "X10CornOilNoFA_Liking2"       
+, "X5CornOil_02Palmitic_Fatty2" 
+, "X5CornOil_02Palmitic_Salty2" 
+, "X5CornOil_02Palmitic_Crispy2"
+, "X5CornOil_02Palmitic_Liking2"
+, "X2_5CornOil_02Palmitic_Fatty2"
+, "X2_5CornOil_02Palmitic_Salty2"
+, "X2_5CornOil_02Palmitic_Crispy2"
+, "X2_5CornOil_02Palmitic_Liking2"
+, "PTC_Bitter2"
+, "PTC_Like2"
+, "Sucrose_Like2"
+, "Sucrose_Sweet2"      
+, "NaCl_Like2" 
+, "NaCl_Salty2")
+
+
+result_table=c("Trait","-2LL", "p (CE vs ACE)", "p (E vs ACE)", "n", "a2","95%CI_lower","95%CI_upper","c2","95%CI_lower","95%CI_upper","e2","95%CI_lower","95%CI_upper")
+
+dir.create("Result1")
+
+mxOption(NULL,"Default optimizer","SLSQP")
+
+for (i in 1:length(T1Vars)){
+    selVars <- c(T1Vars[i],T2Vars[i])
+    
+    mzfData <- as.matrix(subset(myTwinData, MZDZ==1, selVars))
+    dzfData <- as.matrix(subset(myTwinData, MZDZ==2, selVars))
+    
+    ageT1MZ<-subset(myTwinData, MZDZ==1, Age)
+    colnames(ageT1MZ) <- "ageT1MZ"
+    ageT2MZ<-subset(myTwinData, MZDZ==1, Age2)
+    colnames(ageT2MZ) <- "ageT2MZ"
+    ageT1DZ<-subset(myTwinData, MZDZ==2, Age)
+    colnames(ageT1DZ) <- "ageT1DZ"
+    ageT2DZ<-subset(myTwinData, MZDZ==2, Age2)
+    colnames(ageT2DZ) <- "ageT2DZ"
+    
+    sexT1MZ<-subset(myTwinData, MZDZ==1, Sex)
+    colnames(sexT1MZ) <- "sexT1MZ"
+    sexT2MZ<-subset(myTwinData, MZDZ==1, Sex2)
+    colnames(sexT2MZ) <- "sexT2MZ"
+    sexT1DZ<-subset(myTwinData, MZDZ==2, Sex)
+    colnames(sexT1DZ) <- "sexT1DZ"
+    sexT2DZ<-subset(myTwinData, MZDZ==2, Sex2)
+    colnames(sexT2DZ) <- "sexT2DZ"
+    
+    mzData<-data.frame(mzfData,ageT1MZ,ageT2MZ,sexT1MZ,sexT2MZ)
+    dzData<-data.frame(dzfData,ageT1DZ,ageT2DZ,sexT1DZ,sexT2DZ)
+    
+    
+    twinACEModel <- mxModel("twinACE",
+                            mxModel("ACE",
+                                    # Matrices a, c, and e to store a, c, and e path coefficients
+                                    mxMatrix(
+                                        type="Lower",
+                                        nrow=1,
+                                        ncol=1,
+                                        free=TRUE,
+                                        values=0.6,
+                                        labels="a11",
+                                        name="a"
+                                    ),
+                                    mxMatrix(
+                                        type="Lower",
+                                        nrow=1,
+                                        ncol=1,
+                                        free=TRUE,
+                                        values=0.6,
+                                        labels="c11",
+                                        name="c"
+                                    ),
+                                    mxMatrix(
+                                        type="Lower",
+                                        nrow=1,
+                                        ncol=1,
+                                        free=TRUE,
+                                        values=0.6,
+                                        labels="e11",
+                                        name="e"
+                                    ),
+                                    # Matrices A, C, and E compute variance components
+                                    mxAlgebra(
+                                        expression=a %*% t(a),
+                                        name="A"
+                                    ),
+                                    mxAlgebra(
+                                        expression=c %*% t(c),
+                                        name="C"
+                                    ),
+                                    mxAlgebra(
+                                        expression=e %*% t(e),
+                                        name="E"
+                                    ),
+                                    # Matrix & Algebra for expected means vector
+                                    mxMatrix(
+                                        type="Full",
+                                        nrow=1,
+                                        ncol=1,
+                                        free=TRUE,
+                                        values=20,
+                                        label="mean",
+                                        name="Mean"
+                                    ),
+                                    mxAlgebra(
+                                        expression= cbind(Mean,Mean),
+                                        name="expMean"
+                                    ),
+                                    
+                                    # Declare a matrix for the definition variable regression parameters, called beta
+                                    mxMatrix( 
+                                        type="Full", 
+                                        nrow=1, 
+                                        ncol=2, 
+                                        free=TRUE, 
+                                        values= 0, 
+                                        label=c("betaAge","betaSex"), 
+                                        name="beta"
+                                    ),
+                                    
+                                    # Algebra for expected variance/covariance matrix in MZ
+                                    mxAlgebra(
+                                        expression=rbind (cbind(A + C + E , A + C),
+                                                          cbind(A + C     , A + C + E)),
+                                        name="expCovMZ"
+                                    ),
+                                    # Algebra for expected variance/covariance matrix in DZ
+                                    mxAlgebra(
+                                        expression=rbind (cbind(A + C + E     , 0.5 %x% A + C),
+                                                          cbind(0.5 %x% A + C , A + C + E)),
+                                        name="expCovDZ"
+                                    ),
+                                    mxAlgebra(A/(A+C+E), name="stdA"),
+                                    mxAlgebra(C/(A+C+E), name="stdC"),
+                                    mxAlgebra(E/(A+C+E), name="stdE"),
+                                    
+                                    mxCI(c('stdA','stdC','stdE'))
+                            ),
+                            mxModel("MZ",
+                                    mxData(
+                                        observed=mzData,
+                                        type="raw"
+                                    ),
+                                    mxMatrix( 
+                                        type="Full", 
+                                        nrow=2, 
+                                        ncol=2, 
+                                        free=F, 
+                                        label=c("data.ageT1MZ","data.sexT1MZ","data.ageT2MZ","data.sexT2MZ"), 
+                                        name="MZDefVars"
+                                    ),
+                                    mxAlgebra( 
+                                        expression=ACE.expMean + ACE.beta %*% MZDefVars, 
+                                        name="expMeanMZ"
+                                    ),
+                                    mxExpectationNormal(
+                                        covariance="ACE.expCovMZ",
+                                        means="ACE.expMean",
+                                        dimnames=selVars
+                                    ),
+                                    mxFitFunctionML()
+                            ),
+                            mxModel("DZ",
+                                    mxData(
+                                        observed=dzData,
+                                        type="raw"
+                                    ),
+                                    mxMatrix( 
+                                        type="Full", 
+                                        nrow=2, 
+                                        ncol=2, 
+                                        free=F, 
+                                        label=c("data.ageT1DZ","data.sexT1DZ","data.ageT2DZ","data.sexT2DZ"), 
+                                        name="DZDefVars"
+                                    ),
+                                    mxAlgebra( 
+                                        expression=ACE.expMean + ACE.beta %*% DZDefVars, 
+                                        name="expMeanDZ"
+                                    ),
+                                    mxExpectationNormal(
+                                        covariance="ACE.expCovDZ",
+                                        means="ACE.expMean",
+                                        dimnames=selVars
+                                    ),
+                                    mxFitFunctionML()
+                            ),
+                            mxAlgebra(
+                                expression=MZ.objective + DZ.objective,
+                                name="minus2loglikelihood"
+                            ),
+                            mxFitFunctionAlgebra("minus2loglikelihood")
+    )
+    
+    twinACEFit <- mxRun(twinACEModel, intervals=TRUE)
+    
+    MZc <- mxEval(ACE.expCovMZ, twinACEFit)
+    DZc <- mxEval(ACE.expCovDZ, twinACEFit)
+    M <- mxEval(ACE.expMean, twinACEFit)
+    A <- mxEval(ACE.A, twinACEFit)
+    C <- mxEval(ACE.C, twinACEFit)
+    E <- mxEval(ACE.E, twinACEFit)
+    V <- (A+C+E)
+    a2 <- A/V
+    c2 <- C/V
+    e2 <- E/V
+    ACEest <- rbind(cbind(A,C,E),cbind(a2,c2,e2))
+    LL_ACE <- mxEval(objective, twinACEFit)
+    
+    #Run AE model
+    twinAEModel <- mxRename(twinACEModel, "twinAE")
+    
+    # drop shared environmental path
+    twinAEModel$ACE.c <-
+        mxMatrix(
+            type="Full",
+            nrow=1,
+            ncol=1,
+            free=F,
+            values=0,
+            label="c11"
+        )
+    
+    twinAEFit <- mxRun(twinAEModel, intervals=TRUE)
+    
+    MZc <- mxEval(ACE.expCovMZ, twinAEFit)
+    DZc <- mxEval(ACE.expCovDZ, twinAEFit)
+    A <- mxEval(ACE.A, twinAEFit)
+    C <- mxEval(ACE.C, twinAEFit)
+    E <- mxEval(ACE.E, twinAEFit)
+    V <- (A+C+E)
+    a2 <- A/V
+    c2 <- C/V
+    e2 <- E/V
+    AEest <- rbind(cbind(A,C,E),cbind(a2,c2,e2))
+    LL_AE <- mxEval(objective, twinAEFit)
+        
+    #Run CE model
+    twinCEModel <- mxRename(twinACEModel, "twinCE")
+    
+    # drop additive genetic path
+    twinCEModel$ACE.a <-
+        mxMatrix(
+            type="Full",
+            nrow=1,
+            ncol=1,
+            free=F,
+            values=0,
+            label="a11"
+        )
+    
+    twinCEFit <- mxRun(twinCEModel, intervals=TRUE)
+    
+    MZc <- mxEval(ACE.expCovMZ, twinCEFit)
+    DZc <- mxEval(ACE.expCovDZ, twinCEFit)
+    A <- mxEval(ACE.A, twinCEFit)
+    C <- mxEval(ACE.C, twinCEFit)
+    E <- mxEval(ACE.E, twinCEFit)
+    V <- (A+C+E)
+    a2 <- A/V
+    c2 <- C/V
+    e2 <- E/V
+    CEest <- rbind(cbind(A,C,E),cbind(a2,c2,e2))
+    LL_CE <- mxEval(objective, twinCEFit)
+
+    #Run E model
+    twinEModel <- mxRename(twinACEModel, "twinE")
+    
+    # drop additive genetic path
+    twinEModel$ACE.a <-
+        mxMatrix(
+            type="Full",
+            nrow=1,
+            ncol=1,
+            free=F,
+            values=0,
+            label="a11"
+        )
+    
+    # drop shared environmental path
+    twinEModel$ACE.c <-
+        mxMatrix(
+            type="Full",
+            nrow=1,
+            ncol=1,
+            free=F,
+            values=0,
+            label="c11"
+        )
+    
+    twinEFit <- mxRun(twinEModel, intervals=TRUE)
+    
+    MZc <- mxEval(ACE.expCovMZ, twinEFit)
+    DZc <- mxEval(ACE.expCovDZ, twinEFit)
+    A <- mxEval(ACE.A, twinEFit)
+    C <- mxEval(ACE.C, twinEFit)
+    E <- mxEval(ACE.E, twinEFit)
+    V <- (A+C+E)
+    a2 <- A/V
+    c2 <- C/V
+    e2 <- E/V
+    Eest <- rbind(cbind(A,C,E),cbind(a2,c2,e2))
+    LL_E <- mxEval(objective, twinEFit)    
+    
+    cptable <- mxCompare(twinACEFit, c(twinAEFit,twinCEFit, twinEFit))
+    
+    sum_ACE <- summary(twinACEFit)
+    n_ACE <- sum_ACE[["numObs"]] #number of twin pairs including MZ and DZ
+    CIs_ACE <- as.matrix(sum_ACE[["CI"]])
+    
+    sum_AE <- summary(twinAEFit)
+    n_AE <- sum_AE[["numObs"]] #number of twin pairs including MZ and DZ
+    CIs_AE <- as.matrix(sum_AE[["CI"]])
+    
+    sum_CE <- summary(twinCEFit)
+    n_CE <- sum_CE[["numObs"]]
+    CIs_CE <- as.matrix(sum_CE[["CI"]])
+
+    sum_E <- summary(twinEFit)
+    n_E <- sum_E[["numObs"]]
+    CIs_E <- as.matrix(sum_E[["CI"]])
+    
+    #Generate an output table for each phenotype
+    outputtable<-(
+        cbind(cptable[,4],
+              cptable[,9],
+              rbind(n_ACE, n_AE, n_CE, n_E),
+              rbind(c(CIs_ACE[1,2],CIs_ACE[1,1],CIs_ACE[1,3]),c(CIs_AE[1,2],CIs_AE[1,1],CIs_AE[1,3]),c(CIs_CE[1,2],CIs_CE[1,1],CIs_CE[1,3]),c(CIs_E[1,2],CIs_E[1,1],CIs_E[1,3])),
+              rbind(c(CIs_ACE[2,2],CIs_ACE[2,1],CIs_ACE[2,3]),c(CIs_AE[2,2],CIs_AE[2,1],CIs_AE[2,3]),c(CIs_CE[2,2],CIs_CE[2,1],CIs_CE[2,3]),c(CIs_E[2,2],CIs_E[2,1],CIs_E[2,3])),
+              rbind(c(CIs_ACE[3,2],CIs_ACE[3,1],CIs_ACE[3,3]),c(CIs_AE[3,2],CIs_AE[3,1],CIs_AE[3,3]),c(CIs_CE[3,2],CIs_CE[3,1],CIs_CE[3,3]),c(CIs_E[3,2],CIs_E[3,1],CIs_E[3,3]))
+        )  
+    )
+    colnames(outputtable)<-c("-2LL", "p", "n", "a2","95%CI_lower","95%CI_upper","c2","95%CI_lower","95%CI_upper","e2","95%CI_lower","95%CI_upper")
+    rownames(outputtable)<-c("ACE","AE","CE","E")
+    write.csv(outputtable, paste("Result/", selVars[1], ".csv", sep=""))
+    
+    #Pull out estimates from AE model and put in a summary table
+    AE_export <- outputtable[2,]
+    AE_export[2] <- outputtable[3,2]
+    AE_export <- append(AE_export, outputtable[4,2],after=2)
+    result_table <- rbind(result_table,c(selVars[1],AE_export))
+}
+
+result_table <- subset(result_table, select = -c(9:11))
+write.table(result_table,"Result1/Heritability_chip2018_8.txt", sep="\t", col.names=FALSE, row.names=FALSE)
+
+
+```
+
+
+#Next to questions: Sex, Age, and Race, Supllemental Table 2
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+df1<-distinct(df, UniqueID, .keep_all=T)
+df2<-df1 %>% drop_na(TotalCorrect)
+df3<-df1 %>% drop_na(Correct_FatFirst)
+df4<-df1 %>% drop_na(Correct_FatSecond)
+
+sex1<-ggplot(df2, aes(x=Sex, y=TotalCorrect)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Milk Total Correct")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+
+sex1<-ggplot(df2, aes(x=Sex, y=TotalCorrect)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Milk Total Correct")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+sex2<-ggplot(df3, aes(x=Sex, y=Correct_FatFirst)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Milk First Correct")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 6)
+
+sex3<-ggplot(df3, aes(x=Sex, y=Correct_FatSecond)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Milk Second Correct")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 6)
+
+##race
+df1 <- df1 %>% mutate(Race = recode(Race, "1" = "White", "2" = "Asian", "3" = "Hispanic", "4"="Black", "5"="American", "6"="Mixed"))
+
+df2<-df1 %>% drop_na(TotalCorrect)
+df3<-df1 %>% drop_na(Correct_FatFirst)
+df4<-df1 %>% drop_na(Correct_FatSecond)
+
+race1<-ggplot(df2, aes(x=Race, y=TotalCorrect)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Milk Total Correct")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 15)
+
+race2<-ggplot(df3, aes(x=Race, y=Correct_FatFirst)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Milk First Correct")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 7.5)
+
+race3<-ggplot(df4, aes(x=Race, y=Correct_FatSecond)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Milk Second Correct")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 7.5)
+
+##Chip Fattey
+df1 <- df1 %>% mutate(Race = recode(Race, "1" = "White", "2" = "Asian", "3" = "Hispanic", "4"="Black", "5"="American", "6"="Mixed"))
+
+d1<-df1 %>% 
+ as_tibble() %>%
+  mutate(Chip_Fatty_reg = (Chip_1_Fatty +
+                            Chip_4_Fatty)/2)
+d1<-d1 %>% drop_na(Chip_Fatty_reg)
+
+d2<-df1 %>% 
+ as_tibble() %>%
+  mutate(Chip_Fatty_low = (Chip_2_Fatty +
+                            Chip_3_Fatty)/2)
+d2<-d2 %>% drop_na(Chip_Fatty_low)
+
+d3<-df1 %>% 
+ as_tibble() %>%
+  mutate(Chip_Crispy_reg = (Chip_1_Crispy +                         Chip_4_Crispy)/2)
+d3<-d3 %>% drop_na(Chip_Crispy_reg)
+  
+d4<-df1 %>% 
+ as_tibble() %>%
+  mutate(Chip_Crispy_low = (Chip_2_Crispy +
+                            Chip_3_Crispy)/2)
+d4<-d4 %>% drop_na(Chip_Crispy_low)
+
+d5<-df1 %>% 
+ as_tibble() %>%
+  mutate(Chip_Salty_reg = (Chip_1_Salty +                         Chip_4_Salty)/2)
+d5<-d5 %>% drop_na(Chip_Salty_reg)
+  
+d6<-df1 %>% 
+ as_tibble() %>%
+  mutate(Chip_Salty_low = (Chip_2_Salty +
+                            Chip_3_Salty)/2)
+d6<-d6 %>% drop_na(Chip_Salty_low)
+
+d7<-df1 %>% 
+ as_tibble() %>%
+  mutate(Chip_Like_reg = (Chip_1_Like +                         Chip_4_Like)/2)
+d7<-d7 %>% drop_na(Chip_Like_reg)
+  
+d8<-df1 %>% 
+ as_tibble() %>%
+  mutate(Chip_Like_low = (Chip_2_Like +
+                            Chip_3_Like)/2)
+d8<-d8 %>% drop_na(Chip_Like_low)
+
+##Sex
+
+sex1<-ggplot(d1, aes(x=Sex, y=Chip_Fatty_reg)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Fatty_reg")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+sex2<-ggplot(d2, aes(x=Sex, y=Chip_Fatty_low)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Fatty_low")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+sex3<-ggplot(d3, aes(x=Sex, y=Chip_Crispy_reg)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Crispy_reg")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+sex4<-ggplot(d4, aes(x=Sex, y=Chip_Crispy_low)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Crispy_low")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+sex5<-ggplot(d5, aes(x=Sex, y=Chip_Salty_reg)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Salty_reg")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+sex6<-ggplot(d6, aes(x=Sex, y=Chip_Salty_low)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Salty_low")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+sex7<-ggplot(d7, aes(x=Sex, y=Chip_Like_reg)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Like_reg")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+sex8<-ggplot(d8, aes(x=Sex, y=Chip_Like_low)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Like_low")+ggpubr::stat_compare_means(method ="anova", label.x = 1.5, label.y = 11)
+
+############################################
+##Race
+race1<-ggplot(d1, aes(x=Race, y=Chip_Fatty_reg)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Fatty_reg")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 11)
+
+race2<-ggplot(d2, aes(x=Race, y=Chip_Fatty_low)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Fatty_low")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 11)
+
+race3<-ggplot(d3, aes(x=Race, y=Chip_Crispy_reg)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Crispy_reg")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 11)
+
+race4<-ggplot(d4, aes(x=Race, y=Chip_Crispy_low)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Crispy_low")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 11)
+
+race5<-ggplot(d5, aes(x=Race, y=Chip_Salty_reg)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Salty_reg")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 11)
+
+race6<-ggplot(d6, aes(x=Race, y=Chip_Salty_low)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Salty_low")+ggpubr::stat_compare_means(method ="anova", label.x =3, label.y = 11)
+
+race7<-ggplot(d7, aes(x=Race, y=Chip_Like_reg)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Like_reg")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 11)
+
+race8<-ggplot(d8, aes(x=Race, y=Chip_Like_low)) +
+  geom_violin(trim=FALSE, fill='#A4A4A4', color="darkred")+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Chip_Like_low")+ggpubr::stat_compare_means(method ="anova", label.x = 3, label.y = 11)
+
+###RACE and SEX have No effect.
+
+###Cheeck correlations between Age and Milk&Chip data
+
+p1 <- ggplot(df2, aes(TestingAge, TotalCorrect)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Milk Total Correct") +stat_cor(method = "pearson", label.x = 50, label.y = 12, color="red") 
+p1
+
+p2 <- ggplot(df3, aes(TestingAge, Correct_FatFirst)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Milk First Correct") +stat_cor(method = "pearson", label.x = 50, label.y = 7, color="red") 
+p2
+
+p3 <- ggplot(df4, aes(TestingAge, Correct_FatSecond)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Milk Second Correct") +stat_cor(method = "pearson", label.x = 50, label.y = 7, color="red") 
+p3
+
+p4 <- ggplot(d1, aes(TestingAge, Chip_Fatty_reg)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Chip_Fatty_reg") +stat_cor(method = "pearson", label.x = 50, label.y = 8, color="red") 
+p4
+
+p5 <- ggplot(d2, aes(TestingAge, Chip_Fatty_low)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Chip_Fatty_low") +stat_cor(method = "pearson", label.x = 50, label.y = 8, color="red") 
+p5
+
+p6 <- ggplot(d3, aes(TestingAge, Chip_Crispy_reg)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Chip_Crispy_reg") +stat_cor(method = "pearson", label.x = 50, label.y = 8, color="red") 
+p6
+
+p7 <- ggplot(d4, aes(TestingAge, Chip_Crispy_low)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Chip_Crispy_low") +stat_cor(method = "pearson", label.x = 50, label.y = 8, color="red") 
+p7
+
+p8 <- ggplot(d5, aes(TestingAge, Chip_Salty_reg)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Chip_Salty_reg") +stat_cor(method = "pearson", label.x = 50, label.y = 8, color="red") 
+p8
+
+p9 <- ggplot(d6, aes(TestingAge, Chip_Salty_low)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Chip_Salty_low") +stat_cor(method = "pearson", label.x = 50, label.y = 8, color="red") 
+p9
+
+p10 <- ggplot(d7, aes(TestingAge, Chip_Like_reg)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Chip_Like_reg") +stat_cor(method = "pearson", label.x = 50, label.y = 8, color="red") 
+p10
+
+p11 <- ggplot(d8, aes(TestingAge, Chip_Like_low)) + geom_point(shape=1) +geom_smooth(method="lm") +labs(title="")+labs(x="")+labs(y="Chip_Like_low") +stat_cor(method = "pearson", label.x = 50, label.y = 8, color="red") 
+p11
+
+grid.arrange(p1, p2, p3, ncol = 1)
+grid.arrange(p4,p5,p6,p7,p8,p9,p10,p11, ncol = 2)
+
+
+###############
+### To look at the traits measured in y2018
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+
+dat<-df %>%
+  select(ID,SubjectID,UniqueID, Sex, Race, TestingAge, Menthol_Sweet,Menthol_Salty,
+Menthol_Sour,Menthol_Bitter,
+Menthol_Burn,Menthol_Cool,
+Menthol_Liking,Menthol_Intense,
+Capsaicin_Sweet,Capsaicin_Salty,
+Capsaicin_Sour,Capsaicin_Bitter,
+Capsaicin_Burn,Capsaicin_Cool,
+Capsaicin_Liking,Capsaicin_Intense,
+X2.5.CornOilNoFA_Fatty,X2.5.CornOilNoFA_Salty,
+X2.5.CornOilNoFA_Crispy,X2.5.CornOilNoFA_Liking,
+X15.CornOilNoFA_Fatty,X15.CornOilNoFA_Salty,
+X15.CornOilNoFA_Crispy,X15.CornOilNoFA_Liking,
+X5.CornOilNoFA_Fatty,X5.CornOilNoFA_Salty,
+X5.CornOilNoFA_Crispy,X5.CornOilNoFA_Liking,
+X10.CornOilNoFA_Fatty,X10.CornOilNoFA_Salty,
+X10.CornOilNoFA_Crispy,X10.CornOilNoFA_Liking,
+X5.CornOil_02.Palmitic_Fatty,X5.CornOil_02.Palmitic_Salty,
+X5.CornOil_02.Palmitic_Crispy,X5.CornOil_02.Palmitic_Liking,
+X2.5.CornOil_02.Palmitic_Fatty,X2.5.CornOil_02.Palmitic_Salty,
+X2.5.CornOil_02.Palmitic_Crispy,X2.5.CornOil_02.Palmitic_Liking,
+Water_Cool1,Sucrose_Cool2,
+NaCl_Cool3, PTC_Cool9)
+
+dat1<-dat%>% drop_na()
+dat2<-distinct(dat1, UniqueID, .keep_all=T)
+
+d<- melt(dat2, id.vars = c( "ID", "SubjectID" ,"UniqueID","Sex", "Race",      "TestingAge"))
+
+##Sex
+
+sex<-ggplot(d, aes(x=Sex, y=value)) +
+   facet_wrap(.~variable, ncol=7)+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Scores")+ggpubr::stat_compare_means(method ="anova", label.x = 1.2, label.y = 9, color="blue", size=3)
+
+##Race
+d1<-filter(d,Race=="1"|Race=="4")
+race<-sex<-ggplot(d1, aes(x=Race, y=value)) +
+   facet_wrap(.~variable, ncol=6)+
+  geom_boxplot(width=0.1) + theme_minimal()+ylab("Scores")+ggpubr::stat_compare_means(method ="anova", label.x = 1.2, label.y = 9, color="blue",size=3)
+
+##age
+p <- ggplot(d, aes(TestingAge, value)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable, ncol=6)+theme_minimal() +ylab("Scores") +stat_cor(method = "pearson", label.x = 50, label.y = 10, color="red", size=3) 
+p
+
+```
+
+#2018-09-20, checking  same subject retested on Sunday for milk. data ezxlporation
+```{r include=FALSE, echo=FALSE} 
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+df1<-filter(df,Year=="2018")
+df2 <-filter(df1,duplicated(UniqueID))
+df3 <-filter(df1,!duplicated(UniqueID))
+d<-merge(df2, df3, by="UniqueID")
+#d1a <-d %>%
+  select(UniqueID, TestingDay.x, TotalCorrect.x)
+#d1b <-d %>%
+  select(UniqueID, TestingDay.y, TotalCorrect.y)
+
+#d2a <-melt(d1a, id.vars = c("UniqueID","TestingDay.x"))
+
+#d2a <-d2a%>% mutate(variable= recode(variable, "TotalCorrect.x"="TotalCorrectt_Fat", "Correct_FatSecond.x"= "Correct_FatSecond",  "Correct_FatFirst.x"="Correct_FatFirst"))
+                                     
+#d2b <-melt(d1b, id.vars = c("UniqueID","TestingDay.y"))
+
+#d2b <-d2b%>% mutate(variable= recode(variable, "TotalCorrect.y"="TotalCorrectt_Fat", "Correct_FatSecond.y"= "Correct_FatSecond",  "Correct_FatFirst.y"="Correct_FatFirst"))
+
+
+
+p <- ggplot(d, aes(TotalCorrect.y, TotalCorrect.x)) + geom_point(shape=1) +geom_smooth(method="lm")+theme_minimal() +ylab("Sunday") +xlab("Saturday")+ggtitle("2018")+stat_cor(method = "pearson", label.x = 5, label.y = 10, color="red") 
+p
+
+
+df1<-filter(df,Year=="2017")
+df2 <-filter(df1,duplicated(UniqueID))
+df3 <-filter(df1,!duplicated(UniqueID))
+d<-merge(df2, df3, by="UniqueID")
+d1a <-d %>%
+  select(UniqueID,TestingDay.x, TotalCorrect.x, Correct_FatSecond.x, Correct_FatFirst.x)
+
+d1b <-d %>%
+  select(UniqueID,TestingDay.y, TotalCorrect.y, Correct_FatSecond.y, Correct_FatFirst.y)
+d2a <-melt(d1a, id.vars = c("UniqueID","TestingDay.x"))
+
+d2a <-d2a%>% mutate(variable= recode(variable, "TotalCorrect.x"="TotalCorrectt_Fat", "Correct_FatSecond.x"= "Correct_FatSecond",  "Correct_FatFirst.x"="Correct_FatFirst"))
+                                     
+d2b <-melt(d1b, id.vars = c("UniqueID","TestingDay.y"))
+
+d2b <-d2b%>% mutate(variable= recode(variable, "TotalCorrect.y"="TotalCorrectt_Fat", "Correct_FatSecond.y"= "Correct_FatSecond",  "Correct_FatFirst.y"="Correct_FatFirst"))
+
+d3 <-merge(d2a, d2b, by=c("UniqueID","variable"))
+
+p1 <- ggplot(d3, aes(value.y, value.x)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable)+theme_minimal() +ylab("Sunday") +xlab("Saturday")+ggtitle("2017")+stat_cor(method = "pearson", label.x = 5, label.y = 10, color="red") 
+
+p1
+
+df1<-filter(df,Year=="2016")
+df2 <-filter(df1,duplicated(UniqueID))
+df3 <-filter(df1,!duplicated(UniqueID))
+d<-merge(df2, df3, by="UniqueID")
+d1a <-d %>%
+  select(UniqueID,TestingDay.x, TotalCorrect.x, Correct_FatSecond.x, Correct_FatFirst.x)
+d1b <-d %>%
+  select(UniqueID,TestingDay.y, TotalCorrect.y, Correct_FatSecond.y, Correct_FatFirst.y)
+d2a <-melt(d1a, id.vars = c("UniqueID","TestingDay.x"))
+
+d2a <-d2a%>% mutate(variable= recode(variable, "TotalCorrect.x"="TotalCorrectt_Fat", "Correct_FatSecond.x"= "Correct_FatSecond",  "Correct_FatFirst.x"="Correct_FatFirst"))
+                                     
+d2b <-melt(d1b, id.vars = c("UniqueID","TestingDay.y"))
+
+d2b <-d2b%>% mutate(variable= recode(variable, "TotalCorrect.y"="TotalCorrectt_Fat", "Correct_FatSecond.y"= "Correct_FatSecond",  "Correct_FatFirst.y"="Correct_FatFirst"))
+
+d3 <-merge(d2a, d2b, by=c("UniqueID","variable"))
+
+
+p2 <- ggplot(d3, aes(value.y, value.x)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable)+theme_minimal() +ylab("Sunday") +xlab("Saturday")+ggtitle("2016")+stat_cor(method = "pearson", label.x = 5, label.y = 10, color="red") 
+p2
+
+grid.arrange(p2, p1, p, ncol = 1)
+
+########
+##version2, only total correct milk numbers used
+
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+df1<-filter(df,Year=="2018")
+df2 <-filter(df1,duplicated(UniqueID))
+df3 <-filter(df1,!duplicated(UniqueID))
+d<-merge(df2, df3, by="UniqueID")
+
+##
+
+df1<-filter(df,Year=="2017")
+df2 <-filter(df1,duplicated(UniqueID))
+df3 <-filter(df1,!duplicated(UniqueID))
+d2<-merge(df2, df3, by="UniqueID")
+
+#
+
+df1<-filter(df,Year=="2016")
+df2 <-filter(df1,duplicated(UniqueID))
+df3 <-filter(df1,!duplicated(UniqueID))
+d3<-merge(df2, df3, by="UniqueID")
+
+d0<-rbind(d, rbind(d2, d3))
+p <- ggplot(d0, aes(TotalCorrect.y, TotalCorrect.x)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_grid(.~Year.x) +ylab("Sunday") +theme_minimal() +xlab("Saturday")+stat_cor(method = "pearson", label.x = 5, label.y = 11, color="red") 
+p
+```
+
+
+###Figure used for data exlporation only
+```{r include=FALSE, echo=FALSE}
+
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+df1<-filter(df,Year=="2018")
+df2 <-filter(df1,duplicated(UniqueID))
+df3 <-filter(df1,!duplicated(UniqueID))
+d<-merge(df2, df3, by="UniqueID")
+
+##Sunday
+Fattya <-d %>%
+  select(UniqueID, TestingDay.x,X2.5.CornOilNoFA_Fatty.x, X15.CornOilNoFA_Fatty.x,X5.CornOilNoFA_Fatty.x,X10.CornOilNoFA_Fatty.x,X5.CornOil_02.Palmitic_Fatty.x, X2.5.CornOil_02.Palmitic_Fatty.x)
+
+Fattyamel<-melt(Fattya, id.var=c("UniqueID", "TestingDay.x"))
+Fattyamel["type"]<-"Fatty"
+
+Saltya <-d %>%
+  select(UniqueID, TestingDay.x,X2.5.CornOilNoFA_Salty.x, X15.CornOilNoFA_Salty.x,X5.CornOilNoFA_Salty.x,X10.CornOilNoFA_Salty.x,X5.CornOil_02.Palmitic_Salty.x, X2.5.CornOil_02.Palmitic_Salty.x)
+Saltyamel<-melt(Saltya, id.var=c("UniqueID", "TestingDay.x"))
+Saltyamel["type"]<-"Salty"
+
+Crispya <-d %>%
+  select(UniqueID, TestingDay.x,X2.5.CornOilNoFA_Crispy.x, X15.CornOilNoFA_Crispy.x,X5.CornOilNoFA_Crispy.x,X10.CornOilNoFA_Crispy.x,X5.CornOil_02.Palmitic_Crispy.x, X2.5.CornOil_02.Palmitic_Crispy.x)
+Crispyamel<-melt(Crispya, id.var=c("UniqueID", "TestingDay.x"))
+Crispyamel["type"]<-"Crispy"
+
+Likinga <-d %>%
+  select(UniqueID, TestingDay.x,X2.5.CornOilNoFA_Liking.x, X15.CornOilNoFA_Liking.x,X5.CornOilNoFA_Liking.x,X10.CornOilNoFA_Liking.x,X5.CornOil_02.Palmitic_Liking.x, X2.5.CornOil_02.Palmitic_Liking.x)
+Likingamel<-melt(Likinga, id.var=c("UniqueID", "TestingDay.x"))
+Likingamel["type"]<-"Liking"
+
+a <- bind_rows(Fattyamel,bind_rows(Saltyamel,bind_rows(Crispyamel,Likingamel)))
+
+##Saturday
+Fattyb <-d %>%
+  select(UniqueID, TestingDay.y,X2.5.CornOilNoFA_Fatty.y, X15.CornOilNoFA_Fatty.y,X5.CornOilNoFA_Fatty.y,X10.CornOilNoFA_Fatty.y,X5.CornOil_02.Palmitic_Fatty.y, X2.5.CornOil_02.Palmitic_Fatty.y)
+
+Fattybmel<-melt(Fattyb, id.var=c("UniqueID", "TestingDay.y"))
+Fattybmel["type"]<-"Fatty"
+
+Saltyb <-d %>%
+  select(UniqueID, TestingDay.y,X2.5.CornOilNoFA_Salty.y, X15.CornOilNoFA_Salty.y,X5.CornOilNoFA_Salty.y,X10.CornOilNoFA_Salty.y,X5.CornOil_02.Palmitic_Salty.y, X2.5.CornOil_02.Palmitic_Salty.y)
+Saltybmel<-melt(Saltyb, id.var=c("UniqueID", "TestingDay.y"))
+Saltybmel["type"]<-"Salty"
+
+Crispyb <-d %>%
+  select(UniqueID, TestingDay.y,X2.5.CornOilNoFA_Crispy.y, X15.CornOilNoFA_Crispy.y,X5.CornOilNoFA_Crispy.y,X10.CornOilNoFA_Crispy.y,X5.CornOil_02.Palmitic_Crispy.y, X2.5.CornOil_02.Palmitic_Crispy.y)
+Crispybmel<-melt(Crispyb, id.var=c("UniqueID", "TestingDay.y"))
+Crispybmel["type"]<-"Crispy"
+
+Likingb <-d %>%
+  select(UniqueID, TestingDay.y,X2.5.CornOilNoFA_Liking.y, X15.CornOilNoFA_Liking.y,X5.CornOilNoFA_Liking.y,X10.CornOilNoFA_Liking.y,X5.CornOil_02.Palmitic_Liking.y, X2.5.CornOil_02.Palmitic_Liking.y)
+Likingbmel<-melt(Likingb, id.var=c("UniqueID", "TestingDay.y"))
+Likingbmel["type"]<-"Liking"
+
+b <- bind_rows(Fattybmel,bind_rows(Saltybmel,bind_rows(Crispybmel,Likingbmel)))
+
+c=bind_cols(a,b)
+
+theme_get()
+p <- ggplot(c, aes(value, value1)) + geom_point() +geom_smooth(method="lm")+ facet_wrap(.~type, ncol=2) +ylab("Sunday")  +xlab("Saturday")+stat_cor(method = "pearson", label.x = 4, label.y = 8, color="red") +theme_bw() 
+p
+```
+
+##In the meantime, Cailu could you also do a preliminary analysis on data collected on habitual milk consumption and the number of correct milk guesses? Please compare data from 2016 - 2017 and 2018 to see if there was any relationship in any year. 
+
+##Also could you explore whether any of the ratings for the chips relates to the number of correct guesses for the milk? In other words, are people who are better fat discriminators in chips better discriminators in milk?
+
+```{r  include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+
+##2018
+df1<-filter(df,Year=="2018")
+df2<-distinct(df1, UniqueID, .keep_all=T)
+
+d<-df2%>%
+  select(ID, DrinkMilk, TotalCorrect, Correct_FatFirst, Correct_FatSecond)
+d1<-melt(d, id.var=c("ID","DrinkMilk"))
+
+p1 <- ggplot(d1, aes(value, DrinkMilk)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable)+theme_minimal() +ylab("Drink milk frequency") +xlab("Sensor scores")+ggtitle("2018")+stat_cor(method = "pearson", label.x = 3, label.y = 7, color="red") 
+
+p1
+
+##2016_2017
+df1<-filter(df,Year=="2016" |Year=="2017")
+df2<-distinct(df1, UniqueID, .keep_all=T)
+
+d<-df2%>%
+  select(ID, DrinkMilk, TotalCorrect, Correct_FatFirst, Correct_FatSecond)
+d1<-melt(d, id.var=c("ID","DrinkMilk"))
+
+p2 <- ggplot(d1, aes(value, DrinkMilk)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable)+theme_minimal() +ylab("Drink milk frequency") +xlab("Sensor scores")+ggtitle("2016-17")+stat_cor(method = "pearson", label.x = 3, label.y =7, color="red") 
+
+p2
+
+grid.arrange(p2, p1, ncol = 1)
+
+##check milk_chip
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+
+dat<-df%>%
+  select(ID, SubjectID,UniqueID, TotalCorrect, Correct_FatFirst, Correct_FatSecond, X2.5.CornOilNoFA_Fatty, X2.5.CornOilNoFA_Salty, X2.5.CornOilNoFA_Crispy, X2.5.CornOilNoFA_Liking, X15.CornOilNoFA_Fatty, X15.CornOilNoFA_Salty,X15.CornOilNoFA_Crispy, X15.CornOilNoFA_Liking,X5.CornOilNoFA_Fatty,  X5.CornOilNoFA_Salty, 
+X5.CornOilNoFA_Crispy, X5.CornOilNoFA_Liking, X10.CornOilNoFA_Fatty, X10.CornOilNoFA_Salty, X10.CornOilNoFA_Crispy, X10.CornOilNoFA_Liking,
+X5.CornOil_02.Palmitic_Fatty, X5.CornOil_02.Palmitic_Salty,X5.CornOil_02.Palmitic_Crispy, X5.CornOil_02.Palmitic_Liking, 
+X2.5.CornOil_02.Palmitic_Fatty, X2.5.CornOil_02.Palmitic_Salty,X2.5.CornOil_02.Palmitic_Crispy, X2.5.CornOil_02.Palmitic_Liking)
+
+dat1<-dat%>% drop_na()
+dat2<-distinct(dat1, UniqueID, .keep_all=T)
+
+d<- melt(dat2, id.vars = c( "ID", "SubjectID" ,"UniqueID","TotalCorrect", "Correct_FatFirst" ,"Correct_FatSecond"))
+
+p <- ggplot(d, aes(TotalCorrect, value)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable, ncol=6)+theme_minimal() +ylab("Chip sensor scores")+xlab("Milk sensor scores (Total)")  +stat_cor(method = "pearson", label.x = 4, label.y = 10, color="red", size=3) 
+p
+
+
+p1 <- ggplot(d, aes(Correct_FatFirst, value)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable, ncol=6)+theme_minimal() +ylab("Chip sensor scores")+xlab("Milk sensor scores (First)")  +stat_cor(method = "pearson", label.x = 2, label.y = 10, color="red", size=3) 
+p1
+
+p2 <- ggplot(d, aes(Correct_FatSecond, value)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable, ncol=6)+theme_minimal() +ylab("Chip sensor scores")+xlab("Milk sensor scores (Second)")  +stat_cor(method = "pearson", label.x = 2, label.y = 10, color="red", size=3) 
+p2
+
+##2016-2017
+###Look at chips
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+dat2 <-df %>% 
+ as_tibble() %>%
+  mutate(Chip_Fatty_reg = (Chip_1_Fatty +
+                            Chip_4_Fatty)/2)
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Fatty_low = (Chip_2_Fatty +
+                            Chip_3_Fatty)/2)
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Crispy_reg = (Chip_1_Crispy +                         Chip_4_Crispy)/2)
+
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Crispy_low = (Chip_2_Crispy +
+                            Chip_3_Crispy)/2)
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Salty_reg = (Chip_1_Salty +                         Chip_4_Salty)/2)
+
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Salty_low = (Chip_2_Salty +
+                            Chip_3_Salty)/2)
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Like_reg = (Chip_1_Like +                         Chip_4_Like)/2)
+
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Like_low = (Chip_2_Like +
+                            Chip_3_Like)/2)
+
+
+
+dat<-dat2[c(1:3, 21:23,109:116)]
+dat1<-dat%>% drop_na()
+dat11<-distinct(dat1, UniqueID, .keep_all=T)
+
+d<- melt(dat11, id.vars = c( "ID", "SubjectID" ,"UniqueID","TotalCorrect", "Correct_FatFirst" ,"Correct_FatSecond"))
+
+p <- ggplot(d, aes(TotalCorrect, value)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable, ncol=8)+theme_minimal() +ylab("Chip sensor scores")+xlab("Milk sensor scores (Total)")  +stat_cor(method = "pearson", label.x = 4, label.y = 10, color="red", size=3) 
+p
+
+p1 <- ggplot(d, aes(Correct_FatFirst, value)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable, ncol=8)+theme_minimal() +ylab("Chip sensor scores")+xlab("Milk sensor scores (First)")  +stat_cor(method = "pearson", label.x = 2, label.y = 10, color="red", size=3) 
+p1
+
+p2 <- ggplot(d, aes(Correct_FatSecond, value)) + geom_point(shape=1) +geom_smooth(method="lm")+ facet_wrap(.~variable, ncol=8)+theme_minimal() +ylab("Chip sensor scores")+xlab("Milk sensor scores (Second)")  +stat_cor(method = "pearson", label.x = 2, label.y = 10, color="red", size=3) 
+p2
+
+grid.arrange(p2, p1, p, ncol = 1)
+
+```
+
+#can you please do the same analysis for the milk_correct data and also compare data collected from people in 2017 to those collected in 2018?  If people had high scores last year do they have high scores this year? Figure3
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+df18<-filter(df,Year=="2018")
+df16_17<-filter(df,Year=="2016"|Year=="2017")
+d1 <- df18[df18$UniqueID %in% df16_17$UniqueID,]
+d1<-distinct(d1, UniqueID, .keep_all=T)
+d2 <- df16_17[df16_17$UniqueID %in% df18$UniqueID,]
+d2<-distinct(d2, UniqueID, .keep_all=T)
+
+d<-merge(d1, d2, by="UniqueID")
+
+p <- ggplot(d, aes(TotalCorrect.x, TotalCorrect.y)) + geom_point(shape=1) +geom_smooth(method="lm")+theme_minimal() +ylab("Milk scores (2016, 2017)")+xlab("Milk scores (2018)")  +stat_cor(method = "pearson", label.x = 4, label.y = 11, color="red") 
+p
+
+
+####
+p1 <- ggplot(d, aes(Correct_FatFirst.x, Correct_FatFirst.y)) + geom_point(shape=1) +geom_smooth(method="lm")+theme_minimal() +ylab("Milk scores (First, 2016, 2017)")+xlab("Milk scores (First, 2018)")  +stat_cor(method = "pearson", label.x = 2, label.y = 6, color="red") 
+p1
+
+p2 <- ggplot(d, aes(Correct_FatSecond.x, Correct_FatSecond.y)) + geom_point(shape=1) +geom_smooth(method="lm")++theme_minimal() +ylab("Milk scores (Second, 2016, 2017)")+xlab("Milk scores (Second, 2018)")  +stat_cor(method = "pearson", label.x =2, label.y = 6, color="red") 
+p2
+
+grid.arrange(p2, p1, p, ncol = 1)
+```
+
+
+## stas_test for milk2018
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+df1<-filter(df,Year=="2018")
+d1<-distinct(df1, UniqueID, .keep_all=T)
+
+
+group_by(d1, Sex) %>%
+  summarise(
+    count = n(),
+    mean = mean(TestingAge, na.rm = TRUE),
+    sd = sd(TestingAge, na.rm = TRUE)
+  )
+t.test(d1$TotalCorrect~d1$Sex)
+
+#d2<-filter(d1, Race=="1" |Race=="4")
+
+
+d2 <-d1%>% mutate(Race= recode(Race, "2"="other", "3"= "other",  "5"="other", "6"="other", "9"="other", "unknown"="other"))
+group_by(d2,Race)%>%
+  summarise(
+    count = n(),
+    mean = mean(TotalCorrect, na.rm = TRUE),
+    sd = sd(TotalCorrect, na.rm = TRUE)
+  )
+t.test(d2$TotalCorrect~d2$Race)
+
+d3 <- d1%>%
+  select(TestingAge,TotalCorrect)
+d4<-d3 %>% drop_na()
+cor(d3, use="complete.obs")
+
+psych::corr.test(d4$TestingAge, d4$TotalCorrect)
+```
+
+#Figure 5. Compare 5% Corn oil (no FA) to 5% corn oil with FA; compare 2.5% plain to 2.5% with FA
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+#df<-filter(df, !(SP%in%3))
+df1<-filter(df,Year=="2018")
+d1<-distinct(df1, UniqueID, .keep_all=T)
+dx5<-d1%>%
+  select(ID,X5.CornOilNoFA_Fatty,     X5.CornOilNoFA_Salty,         
+X5.CornOilNoFA_Crispy,         
+X5.CornOilNoFA_Liking,X5.CornOil_02.Palmitic_Fatty,  
+X5.CornOil_02.Palmitic_Salty,  
+X5.CornOil_02.Palmitic_Crispy, 
+X5.CornOil_02.Palmitic_Liking)
+
+dx5Fatty<-dx5[c(1,2,6)]
+colnames(dx5Fatty) <- c("ID", "NOFA", "FA")
+dx5Fatty["type"]<-"Fatty"
+
+dx5Salty<-dx5[c(1,3,7)]
+colnames(dx5Salty) <- c("ID", "NOFA", "FA")
+dx5Salty["type"]<-"Salty"
+
+dx5Crispy<-dx5[c(1,4,8)]
+colnames(dx5Crispy) <- c("ID", "NOFA", "FA")
+dx5Crispy["type"]<-"Crispy"
+
+dx5Liking<-dx5[c(1,5,9)]
+colnames(dx5Liking) <- c("ID", "NOFA", "FA")
+dx5Liking["type"]<-"Liking"
+
+dx5all<-rbind(dx5Fatty,rbind(dx5Salty,rbind(dx5Crispy,dx5Liking)))
+ 
+
+
+p1 <- ggplot(dx5all, aes(NOFA, FA)) + geom_point(shape=1) +geom_smooth(method="lm") +facet_wrap(.~type)+theme_minimal() +ylab("Sensor scores (no fat)")+xlab("Sensor scores (with fat)")  +stat_cor(method = "pearson", label.x =4, label.y = 11, color="red") +ggtitle("5% Corn oil")
+p1
+
+dx25<-d1%>%
+  select(ID,X2.5.CornOilNoFA_Fatty,     X2.5.CornOilNoFA_Salty,         
+X2.5.CornOilNoFA_Crispy,         
+X2.5.CornOilNoFA_Liking,X2.5.CornOil_02.Palmitic_Fatty, X2.5.CornOil_02.Palmitic_Salty,  
+X2.5.CornOil_02.Palmitic_Crispy, 
+X2.5.CornOil_02.Palmitic_Liking)
+
+dx25Fatty<-dx25[c(1,2,6)]
+colnames(dx25Fatty) <- c("ID", "NOFA", "FA")
+dx25Fatty["type"]<-"Fatty"
+
+dx25Salty<-dx25[c(1,3,7)]
+colnames(dx25Salty) <- c("ID", "NOFA", "FA")
+dx25Salty["type"]<-"Salty"
+
+dx25Crispy<-dx25[c(1,4,8)]
+colnames(dx25Crispy) <- c("ID", "NOFA", "FA")
+dx25Crispy["type"]<-"Crispy"
+
+dx25Liking<-dx25[c(1,5,9)]
+colnames(dx25Liking) <- c("ID", "NOFA", "FA")
+dx25Liking["type"]<-"Liking"
+
+dx25all<-rbind(dx25Fatty,rbind(dx25Salty,rbind(dx25Crispy,dx25Liking)))
+
+p2 <- ggplot(dx25all, aes(NOFA, FA)) + geom_point(shape=1) +geom_smooth(method="lm") +facet_wrap(.~type)+theme_minimal() +ylab("Sensor scores (no fat)")+xlab("Sensor scores (with fat)")  +stat_cor(method = "pearson", label.x =4, label.y = 11, color="red") +ggtitle("25% Corn oil")
+p2
+
+grid.arrange(p1, p2, ncol = 2)
+
+version#2needs to be a bar graph that reflects a two-way ANOVA with percent fat (5% vs 2.5%) and FA (yes or no) as fixed factors. Add superscripts to reflect group differences.<Figure 6>
+
+
+lsmeans = lsmeans::lsmeans
+
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+#df<-filter(df, !(SP%in%3))
+df1<-filter(df,Year=="2018")
+d1<-distinct(df1, UniqueID, .keep_all=T)
+dx5<-d1%>%
+  select(ID,X5.CornOilNoFA_Fatty,     X5.CornOilNoFA_Salty,         
+X5.CornOilNoFA_Crispy,         
+X5.CornOilNoFA_Liking,X5.CornOil_02.Palmitic_Fatty,  
+X5.CornOil_02.Palmitic_Salty,  
+X5.CornOil_02.Palmitic_Crispy, 
+X5.CornOil_02.Palmitic_Liking)
+
+dx5Fatty<-dx5[c(1,2,6)]
+colnames(dx5Fatty) <- c("ID", "NOFA", "FA")
+dx5Fatty["type"]<-"Fatty"
+
+dx5Salty<-dx5[c(1,3,7)]
+colnames(dx5Salty) <- c("ID", "NOFA", "FA")
+dx5Salty["type"]<-"Salty"
+
+dx5Crispy<-dx5[c(1,4,8)]
+colnames(dx5Crispy) <- c("ID", "NOFA", "FA")
+dx5Crispy["type"]<-"Crispy"
+
+dx5Liking<-dx5[c(1,5,9)]
+colnames(dx5Liking) <- c("ID", "NOFA", "FA")
+dx5Liking["type"]<-"Liking"
+
+dx5all<-rbind(dx5Fatty,rbind(dx5Salty,rbind(dx5Crispy,dx5Liking)))
+
+dx5allmelt <- melt(dx5all, id.var=c("ID", "type"))
+dx5allmelt["con"]<-"5% Corn oil"
+
+dx25<-d1%>%
+  select(ID,X2.5.CornOilNoFA_Fatty,     X2.5.CornOilNoFA_Salty,         
+X2.5.CornOilNoFA_Crispy,         
+X2.5.CornOilNoFA_Liking,X2.5.CornOil_02.Palmitic_Fatty, X2.5.CornOil_02.Palmitic_Salty,  
+X2.5.CornOil_02.Palmitic_Crispy, 
+X2.5.CornOil_02.Palmitic_Liking)
+
+dx25Fatty<-dx25[c(1,2,6)]
+colnames(dx25Fatty) <- c("ID", "NOFA", "FA")
+dx25Fatty["type"]<-"Fatty"
+
+dx25Salty<-dx25[c(1,3,7)]
+colnames(dx25Salty) <- c("ID", "NOFA", "FA")
+dx25Salty["type"]<-"Salty"
+
+dx25Crispy<-dx25[c(1,4,8)]
+colnames(dx25Crispy) <- c("ID", "NOFA", "FA")
+dx25Crispy["type"]<-"Crispy"
+
+dx25Liking<-dx25[c(1,5,9)]
+colnames(dx25Liking) <- c("ID", "NOFA", "FA")
+dx25Liking["type"]<-"Liking"
+
+dx25all<-rbind(dx25Fatty,rbind(dx25Salty,rbind(dx25Crispy,dx25Liking)))
+
+dx25allmelt <- melt(dx25all, id.var=c("ID", "type"))
+dx25allmelt["con"]<-"2.5% Corn oil"
+
+dat<-rbind(dx5allmelt, dx25allmelt)
+
+#######
+
+sumFatty = summarySE(subset(dat, type=="Fatty"),
+                measurevar="value",
+                groupvars=c("con","variable"))
+sumFatty
+model = lm(value ~ con + variable + con:variable,
+           data=subset(dat, type=="Fatty"))
+leastsquare = lsmeans(model,
+                     pairwise ~ con:variable,
+                      adjust="tukey")
+
+ 
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+
+sumFatty["type"]<-"Fatty"
+
+sumSalty = summarySE(subset(dat, type=="Salty"),
+                measurevar="value",
+                groupvars=c("con","variable"))
+sumSalty
+
+model = lm(value ~ con + variable + con:variable,
+           data=subset(dat, type=="Salty"))
+leastsquare = lsmeans(model,
+                     pairwise ~ con:variable,
+                      adjust="tukey")
+
+ 
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+sumSalty["type"]<-"Salty"
+sumCrispy = summarySE(subset(dat, type=="Crispy"),
+                measurevar="value",
+                groupvars=c("con","variable"))
+sumCrispy
+model = lm(value ~ con + variable + con:variable,
+           data=subset(dat, type=="Crispy"))
+leastsquare = lsmeans(model,
+                     pairwise ~ con:variable,
+                      adjust="tukey")
+
+ 
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+sumCrispy["type"]<-"Crispy"
+
+sumLiking = summarySE(subset(dat, type=="Liking"),
+                measurevar="value",
+                groupvars=c("con","variable"))
+sumLiking
+model = lm(value ~ con + variable + con:variable,
+           data=subset(dat, type=="Liking"))
+leastsquare = lsmeans(model,
+                     pairwise ~ con:variable,
+                      adjust="tukey")
+
+ 
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+sumLiking["type"]<-"Liking"
+
+#sum<-rbind(sumFatty,rbind(sumSalty,rbind(sumCrispy,sumLiking)))##not work
+
+pd = position_dodge(.2)
+
+p1<-ggplot(sumFatty, aes(x=con,
+                y=value,
+                color=variable)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold")) +
+    scale_color_manual(values = c("black", "blue"))+ggtitle("Fatty")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("")+ylab("Sensory ratings, visual analog scale")+theme(legend.position = c(0.15, 0.8))+
+annotate(geom="text", x=0.95, y=2.35, label="a", color="black")+
+annotate(geom="text", x=1.05, y=2.785, label="bc", color="black")+
+annotate(geom="text", x=1.95, y=2.66, label="b", color="black")+
+annotate(geom="text", x=2.05, y=3, label="c", color="black")+ theme(legend.title=element_blank())
+
+
+p2<-ggplot(sumSalty, aes(x=con,
+                y=value,
+                color=variable)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold")) +
+    scale_color_manual(values = c("black", "blue"))+ggtitle("Salty")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("")+ylab("")+theme(legend.position = "none")+
+annotate(geom="text", x=0.95, y=2.56, label="a", color="black")+
+annotate(geom="text", x=1.05, y=2.41, label="a", color="black")+
+annotate(geom="text", x=1.95, y=2.35, label="a", color="black")+
+annotate(geom="text", x=2.05, y=2.54, label="a", color="black")
+
+p3<-ggplot(sumCrispy, aes(x=con,
+                y=value,
+                color=variable)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold")) +
+    scale_color_manual(values = c("black", "blue"))+ggtitle("Crispy")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("")+ylab("Sensory ratings, visual analog scale")+theme(legend.position = "none")+
+annotate(geom="text", x=0.95, y=4.19, label="a", color="black")+
+annotate(geom="text", x=1.05, y=3.987, label="ab", color="black")+
+annotate(geom="text", x=1.95, y=3.87, label="b", color="black")+
+annotate(geom="text", x=2.05, y=3.96, label="ab", color="black")
+
+p4<-ggplot(sumLiking, aes(x=con,
+                y=value,
+                color=variable)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold")) +
+    scale_color_manual(values = c("black", "blue"))+ggtitle("Liking")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("")+ylab("")+theme(legend.position = "none")+
+annotate(geom="text", x=0.95, y=4.94, label="a", color="black")+
+annotate(geom="text", x=1.05, y=4.14, label="c", color="black")+
+annotate(geom="text", x=1.95, y=4.55, label="ab", color="black")+
+annotate(geom="text", x=2.05, y=4.35, label="b", color="black")
+
+grid.arrange(p1, p2, p3, p4,ncol = 2)
+
+```
+
+#Figure 7=>dropped.  four panel plot of fatty, liking, salty and crispy ratings for each of the six chip types==>dropped
+```{r include=FALSE, echo=FALSE}
+
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+#df<-filter(df, !(SP%in%3))
+df1<-filter(df,Year=="2018")
+d1<-distinct(df1, UniqueID, .keep_all=T)
+
+Fatty<-d1 %>%
+  select(X2.5.CornOilNoFA_Fatty,X15.CornOilNoFA_Fatty, X5.CornOilNoFA_Fatty, X10.CornOilNoFA_Fatty, X5.CornOil_02.Palmitic_Fatty, X2.5.CornOil_02.Palmitic_Fatty)
+
+colnames(Fatty) <- c("2.5% Corn Oil(NoFA)", "15% Corn Oil(NoFA)","5% Corn Oil(NoFA)",    "10% Corn Oil(NoFA)", "5% Corn Oil (02.Palmitic)","2.5% Corn Oil (02.Palmitic)")
+
+cormat1 <- round(cor(Fatty, use = "complete.obs"),2)
+head(cormat1)
+melted_cormat1 <- melt(cormat1)
+melted_cormat1$type<- rep("Fatty",nrow(melted_cormat1))
+head(melted_cormat1)
+
+
+Salty<-d1 %>%
+  select(X2.5.CornOilNoFA_Salty,X15.CornOilNoFA_Salty, X5.CornOilNoFA_Salty, X10.CornOilNoFA_Salty, X5.CornOil_02.Palmitic_Salty, X2.5.CornOil_02.Palmitic_Salty)
+
+colnames(Salty) <- c("2.5% Corn Oil(NoFA)", "15% Corn Oil(NoFA)","5% Corn Oil(NoFA)",    "10% Corn Oil(NoFA)", "5% Corn Oil (02.Palmitic)","2.5% Corn Oil (02.Palmitic)")
+
+cormat2 <- round(cor(Salty, use = "complete.obs"),2)
+head(cormat2)
+melted_cormat2 <- melt(cormat2)
+melted_cormat2$type<- rep("Salty",nrow(melted_cormat2))
+head(melted_cormat2)
+
+Crispy<-d1 %>%
+  select(X2.5.CornOilNoFA_Crispy,X15.CornOilNoFA_Crispy, X5.CornOilNoFA_Crispy, X10.CornOilNoFA_Crispy, X5.CornOil_02.Palmitic_Crispy, X2.5.CornOil_02.Palmitic_Crispy)
+
+colnames(Crispy) <- c("2.5% Corn Oil(NoFA)", "15% Corn Oil(NoFA)","5% Corn Oil(NoFA)",    "10% Corn Oil(NoFA)", "5% Corn Oil (02.Palmitic)","2.5% Corn Oil (02.Palmitic)")
+
+cormat3 <- round(cor(Crispy, use = "complete.obs"),2)
+head(cormat3)
+melted_cormat3 <- melt(cormat3)
+melted_cormat3$type<- rep("Crispy",nrow(melted_cormat3))
+head(melted_cormat3)
+
+
+Liking<-d1 %>%
+  select(X2.5.CornOilNoFA_Liking,X15.CornOilNoFA_Liking, X5.CornOilNoFA_Liking, X10.CornOilNoFA_Liking, X5.CornOil_02.Palmitic_Liking, X2.5.CornOil_02.Palmitic_Liking)
+colnames(Liking) <- c("2.5% Corn Oil(NoFA)", "15% Corn Oil(NoFA)","5% Corn Oil(NoFA)",    "10% Corn Oil(NoFA)", "5% Corn Oil (02.Palmitic)","2.5% Corn Oil (02.Palmitic)")
+
+cormat4 <- round(cor(Liking, use = "complete.obs"),2)
+head(cormat4)
+melted_cormat4 <- melt(cormat4)
+melted_cormat4$type<- rep("Liking",nrow(melted_cormat4))
+head(melted_cormat4)
+
+
+melted_cormat <-rbind(melted_cormat1, rbind(melted_cormat2, rbind(melted_cormat3, melted_cormat4)))
+
+
+p<-ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile()+geom_tile(color = "white")+
+ scale_fill_gradient2(low = "white", high = "red", mid = "grey", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size=10, hjust = 1))+
+ coord_fixed() +xlab("")+ylab("")+ facet_wrap(~type, nrow = 2)
+p
+
+```
+
+#ANOVA results of sex, race and age effects on ratings of fatty, liking, salty crispy  <Figure 5>
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+#df<-filter(df, !(SP%in%3))
+df1<-filter(df,Year=="2018")
+d1<-distinct(df1, UniqueID, .keep_all=T)
+
+d2 <-d1%>% mutate(Race= recode(Race, "2"="other", "3"= "other",  "5"="other", "6"="other", "9"="other", "unknown"="other"))
+
+Fatty<-d2 %>%
+  select(ID,Sex, Race, TestingAge, X2.5.CornOilNoFA_Fatty,X15.CornOilNoFA_Fatty, X5.CornOilNoFA_Fatty, X10.CornOilNoFA_Fatty, X5.CornOil_02.Palmitic_Fatty, X2.5.CornOil_02.Palmitic_Fatty)
+colnames(Fatty) <- c("ID" ,  "Sex","Race" ,"Age", "2.5% Corn Oil (NoFA)", "15% Corn Oil (NoFA)","5% Corn Oil (NoFA)",    "10% Corn Oil (NoFA)", "5% Corn Oil (02.Palmitic)","2.5% Corn Oil (02.Palmitic)")
+
+dFatty<-melt(Fatty, id.var=c("ID", "Sex","Race" ,"Age"))
+
+fit <- lmer(value ~ variable + Sex + Race + Age + (1|ID), data=dFatty)
+anova(fit)
+
+sumFatty = summarySE(dFatty,
+                measurevar="value",
+                groupvars="variable")
+sumFatty
+model = lm(value ~ variable + Sex + Race + Age + (1|ID), data=dFatty)
+leastsquare = lsmeans(model,
+                     pairwise ~ variable,
+                      adjust="tukey")
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+Salty<-d2 %>%
+  select(ID,Sex, Race, TestingAge, X2.5.CornOilNoFA_Salty,X15.CornOilNoFA_Salty, X5.CornOilNoFA_Salty, X10.CornOilNoFA_Salty, X5.CornOil_02.Palmitic_Salty, X2.5.CornOil_02.Palmitic_Salty)
+colnames(Salty) <- c("ID" ,  "Sex","Race" ,"Age", "2.5% Corn Oil (NoFA)", "15% Corn Oil (NoFA)","5% Corn Oil (NoFA)",    "10% Corn Oil (NoFA)", "5% Corn Oil (02.Palmitic)","2.5% Corn Oil (02.Palmitic)")
+dSalty<-melt(Salty, id.var=c("ID" ,"Sex","Race" ,"Age"))
+
+fit <- lmer(value ~ variable + Sex + Race + Age + (1|ID), data=dSalty)
+anova(fit)
+
+sumSalty = summarySE(dSalty,
+                measurevar="value",
+                groupvars="variable")
+sumSalty
+model = lm(value ~ variable + Sex + Race + Age + (1|ID), data=dSalty)
+leastsquare = lsmeans(model,
+                     pairwise ~ variable,
+                      adjust="tukey")
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+sumSalty2 = summarySE(dSalty,
+                measurevar="value",
+                groupvars="Race")
+sumSalty2
+model = lm(value ~ variable + Sex + Race + Age + (1|ID), data=dSalty)
+leastsquare = lsmeans(model,
+                     pairwise ~ Race,
+                      adjust="tukey")
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+
+
+Crispy<-d2 %>%
+  select(ID,Sex, Race, TestingAge, X2.5.CornOilNoFA_Crispy,X15.CornOilNoFA_Crispy, X5.CornOilNoFA_Crispy, X10.CornOilNoFA_Crispy, X5.CornOil_02.Palmitic_Crispy, X2.5.CornOil_02.Palmitic_Crispy)
+
+
+Crispy<-d2 %>%
+  select(ID,Sex, Race, TestingAge, X2.5.CornOilNoFA_Crispy,X15.CornOilNoFA_Crispy, X5.CornOilNoFA_Crispy, X10.CornOilNoFA_Crispy, X5.CornOil_02.Palmitic_Crispy, X2.5.CornOil_02.Palmitic_Crispy)
+
+colnames(Crispy) <- c("ID" ,  "Sex","Race" ,"Age", "2.5% Corn Oil (NoFA)", "15% Corn Oil (NoFA)","5% Corn Oil (NoFA)",    "10% Corn Oil (NoFA)", "5% Corn Oil (02.Palmitic)","2.5% Corn Oil (02.Palmitic)")
+
+dCrispy<-melt(Crispy, id.var=c("ID" ,  "Sex","Race" ,"Age"))
+
+fit <- lmer(value ~ variable + Sex + Race + Age + (1|ID), data=dCrispy)
+anova(fit)
+sumCrispy = summarySE(dCrispy,
+                measurevar="value",
+                groupvars="variable")
+sumCrispy
+model = lm(value ~ variable + Sex + Race + Age + (1|ID), data=dCrispy)
+leastsquare = lsmeans(model,
+                     pairwise ~ variable,
+                      adjust="tukey")
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+
+Liking<-d2 %>%
+  select(ID,Sex, Race, TestingAge, X2.5.CornOilNoFA_Liking,X15.CornOilNoFA_Liking, X5.CornOilNoFA_Liking, X10.CornOilNoFA_Liking, X5.CornOil_02.Palmitic_Liking, X2.5.CornOil_02.Palmitic_Liking)
+colnames(Liking) <- c("ID" ,  "Sex","Race" ,"Age", "2.5% Corn Oil (NoFA)", "15% Corn Oil (NoFA)","5% Corn Oil (NoFA)",    "10% Corn Oil (NoFA)", "5% Corn Oil (02.Palmitic)","2.5% Corn Oil (02.Palmitic)")
+
+dLiking<-melt(Liking, id.var=c("ID" ,  "Sex","Race" ,"Age"))
+
+fit <- lmer(value ~ variable + Sex + Race + Age + (1|ID), data=dLiking)
+anova(fit)
+
+sumLiking = summarySE(dLiking,
+                measurevar="value",
+                groupvars="variable")
+sumLiking
+model = lm(value ~ variable + Sex + Race + Age + (1|ID), data=dLiking)
+leastsquare = lsmeans(model,
+                     pairwise ~ variable,
+                      adjust="tukey")
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+
+##Additional graph. Need an additional graph to illustrate the results from Table 4 for Chip Type, a bar graph with standard deviations of the ratings for each chip type.
+
+pd = position_dodge(.2)
+
+p1<-ggplot(sumFatty, aes(x = variable,
+                y=value)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold")) +
+    scale_color_manual(values = "black")+ggtitle("Fatty")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("")+ylab("")+theme(legend.position = c(0.2, 0.8))+
+annotate(geom="text", x=5, y=2.82, label="bc", color="black")+
+annotate(geom="text", x=6, y=3.03, label="c", color="black")+
+annotate(geom="text", x=3, y=2.96, label="bc", color="black")+
+annotate(geom="text", x=2, y=2.68, label="ab", color="black")+annotate(geom="text", x=4, y=2.90, label="bc", color="black")+annotate(geom="text", x=1, y=2.35, label="a", color="black")+ coord_flip()+
+  scale_x_discrete(limits=c("2.5% Corn Oil (NoFA)","5% Corn Oil (NoFA)","10% Corn Oil (NoFA)","15% Corn Oil (NoFA)","2.5% Corn Oil (02.Palmitic)","5% Corn Oil (02.Palmitic)"))
+
+
+p2<-ggplot(sumSalty, aes(x=variable,
+                y=value)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold")) +
+    scale_color_manual(values = "black")+ggtitle("Salty")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("")+ylab("")+theme(legend.position = c(0.2, 0.8))+
+annotate(geom="text", x=5, y=2.44, label="a", color="black")+
+annotate(geom="text", x=6, y=2.57, label="ab", color="black")+
+annotate(geom="text", x=3, y=2.84, label="bc", color="black")+
+annotate(geom="text", x=2, y=2.38, label="a", color="black")+annotate(geom="text", x=4, y=3.03, label="c", color="black")+annotate(geom="text", x=1, y=2.59, label="ab", color="black")+coord_flip()+
+  scale_x_discrete(limits=c("2.5% Corn Oil (NoFA)","5% Corn Oil (NoFA)","10% Corn Oil (NoFA)","15% Corn Oil (NoFA)","2.5% Corn Oil (02.Palmitic)","5% Corn Oil (02.Palmitic)"))
+
+
+p3<-ggplot(sumCrispy, aes(x=variable,
+                y=value)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold")) +
+    scale_color_manual(values = "black")+ggtitle("Crispy")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("")+ylab("Sensory ratings, visual analog scale") +theme(legend.position = c(0.2, 0.8))+
+annotate(geom="text", x=5, y=4.01, label="a", color="black")+
+annotate(geom="text", x=6, y=3.98, label="a", color="black")+
+annotate(geom="text", x=3, y=4.14, label="ab", color="black")+
+annotate(geom="text", x=2, y=3.90, label="a", color="black")+annotate(geom="text", x=4, y=4.46, label="b", color="black")+annotate(geom="text", x=1, y=4.22, label="ab", color="black")+coord_flip()+
+  scale_x_discrete(limits=c("2.5% Corn Oil (NoFA)","5% Corn Oil (NoFA)","10% Corn Oil (NoFA)","15% Corn Oil (NoFA)","2.5% Corn Oil (02.Palmitic)","5% Corn Oil (02.Palmitic)"))
+
+
+p4<-ggplot(sumLiking, aes(x=variable,
+                y=value)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold")) +
+    scale_color_manual(values = "black")+ggtitle("Liking")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("")+ylab("Sensory ratings, visual analog scale") +theme(legend.position = c(0.2, 0.8))+
+annotate(geom="text", x=5, y=4.14, label="a", color="black")+
+annotate(geom="text", x=6, y=4.37, label="ab", color="black")+
+annotate(geom="text", x=3, y=4.67, label="bcd", color="black")+
+annotate(geom="text", x=2, y=4.57, label="bc", color="black")+annotate(geom="text", x=4, y=4.87, label="cd", color="black")+annotate(geom="text", x=1, y=4.94, label="d", color="black")+coord_flip()+
+  scale_x_discrete(limits=c("2.5% Corn Oil (NoFA)","5% Corn Oil (NoFA)","10% Corn Oil (NoFA)","15% Corn Oil (NoFA)","2.5% Corn Oil (02.Palmitic)","5% Corn Oil (02.Palmitic)"))
+
+grid.arrange(p1, p2, p3, p4,ncol = 2)  #<Figure 6>
+
+##Bar graph of chip ratings of salty by race <Figure 7>
+sumSalty3<-sumSalty2%>%
+  filter(Race=="1" |Race=="4")
+sumSalty3 <- sumSalty3 %>% mutate(Race = recode(Race, "1" = "White",  "4"="Black"))
+pd = position_dodge(.2)
+p2race<-ggplot(sumSalty3, aes(x=Race,
+                y=value)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold")) +
+    scale_color_manual(values = "black")+ggtitle("Salty")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("Race")+ylab("Saltiness, visual analog scale")+theme(legend.position = c(0.2, 0.8))+
+annotate(geom="text", x=1, y=2.55, label="a", color="black")+
+annotate(geom="text", x=2, y=2.98, label="b", color="black")
+
+###Aggregating ratings of liking by age ¨C scatterplot  <Figure 8>
+data.frame(dLiking)
+dLiking$pc <- predict(prcomp(~value+Age, dLiking))[,1]
+p <- ggplot(dLiking, aes(Age, value, color=pc)) + geom_point(shape=16, size=3) +geom_smooth(method="lm")+ theme_minimal()+ scale_color_gradient(low = "#0091ff", high = "#f0650e", guide = FALSE)+ylab("Aggregating ratings of liking")+xlab("Age")  +stat_cor(method = "pearson", label.x = 45, label.y =8.5, color="red", size=5) 
+p
+
+##look at fatty and liking
+dx=merge(dLiking, dFatty, by=c("ID", "Sex", "Race", "Age", "variable"))
+
+px <- ggplot(dx, aes(value.x, value.y)) + geom_point() +geom_smooth(method="lm")+ theme_bw() +ylab("Fatty")+xlab("Liking")  +stat_cor(method = "pearson", label.x = 4, label.y =8.5, color="red", size=5) 
+
+#px1 <- plotly_POST(px, filename="stat_smooth/trend")
+```
+
+##Figure 11 : somehow make a metric of people who were good at rating the chips to their performance at rating of milk ¨C need to think about this issue. If people are good at rating the fattiness of chips are they better at the fat discrimination
+
+#after screening data, only 2016-2017 regluar fat chip positively correlated with milk scores, and thus could be used as exaple to adrress this point?
+
+
+##Dani to think about
+```{r include=FALSE, echo=FALSE}
+
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+#df<-filter(df, !(SP%in%3))
+
+
+df<-distinct(df, UniqueID, .keep_all=T)
+dat2 <-df %>% 
+ as_tibble() %>%
+  mutate(Chip_Fatty_reg = (Chip_1_Fatty +
+                            Chip_4_Fatty)/2)
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Fatty_low = (Chip_2_Fatty +
+                            Chip_3_Fatty)/2)
+
+dat3 <-dat2 %>%
+  select(TotalCorrect,Chip_Fatty_reg)
+
+dat3 <-dat3 %>% drop_na()
+
+data.frame(dat3)
+dat3$pc <- predict(prcomp(~TotalCorrect+Chip_Fatty_reg, dat3))[,1]
+
+p <- ggplot(dat3, aes(TotalCorrect, Chip_Fatty_reg, color=pc)) + geom_point(shape=16, size=5) +geom_smooth(method="lm")+ theme_minimal()+ scale_color_gradient(low = "#0091ff", high = "#f0650e", guide = FALSE)+ylab("Chip sensor scores (Fatty)")+xlab("Milk sensor scores (Corret)")  +stat_cor(method = "pearson", label.x = 4, label.y = 10, color="red") 
+p
+
+```
+
+##How many Co_twin_IDs not matched?
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+#df1<-distinct(df, UniqueID, .keep_all=T)
+tw1<-filter(df, TwinID==1)
+tw2<-filter(df, TwinID==2)
+dat<-merge(tw1, tw2, by.x="SubjectID",by.y="Co_TwinID", all=T)
+
+## data okay,  TWA1686, TWA2063, TWA2142, TWA2759 are twin 3, no data for TWA687 and TWA688; TWA2144 and TWA2760 recoded as 0
+```
+## re-do anova for results of sex, race and age effects on ratings of fatty, liking  <Figure 5>  by droping concentration 5% and 10% for the PA tabacco grant application 2019
+```{r include=FALSE, echo=FALSE}
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+#df<-filter(df, !(SP%in%3))
+df1<-filter(df,Year=="2018")
+d1<-distinct(df1, UniqueID, .keep_all=T)
+
+d2 <-d1%>% mutate(Race= recode(Race, "2"="other", "3"= "other",  "5"="other", "6"="other", "9"="other", "unknown"="other"))
+
+Fatty<-d2 %>%
+  select(ID,Sex, Race, TestingAge, X2.5.CornOilNoFA_Fatty, X5.CornOilNoFA_Fatty,  X5.CornOil_02.Palmitic_Fatty, X2.5.CornOil_02.Palmitic_Fatty)
+colnames(Fatty) <- c("ID" ,  "Sex","Race" ,"Age", "2.5% (NoFA)", "5% (NoFA)", "5% (0.2% palmitic acid)","2.5% (0.2% palmitic acid)")
+
+dFatty<-melt(Fatty, id.var=c("ID", "Sex","Race" ,"Age"))
+
+fit <- lmer(value ~ variable + Sex + Race + Age + (1|ID), data=dFatty)
+anova(fit)
+
+sumFatty = summarySE(dFatty,
+                measurevar="value",
+                groupvars="variable")
+sumFatty
+model = lm(value ~ variable + Sex + Race + Age + (1|ID), data=dFatty)
+leastsquare = lsmeans(model,
+                     pairwise ~ variable,
+                      adjust="tukey")
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+
+Liking<-d2 %>%
+  select(ID,Sex, Race, TestingAge, X2.5.CornOilNoFA_Liking, X5.CornOilNoFA_Liking,  X5.CornOil_02.Palmitic_Liking, X2.5.CornOil_02.Palmitic_Liking)
+colnames(Liking) <- c("ID" ,  "Sex","Race" ,"Age", "2.5% (NoFA)", "5% (NoFA)", "5% (0.2% palmitic acid)","2.5% (0.2% palmitic acid)")
+
+dLiking<-melt(Liking, id.var=c("ID" ,  "Sex","Race" ,"Age"))
+
+fit <- lmer(value ~ variable + Sex + Race + Age + (1|ID), data=dLiking)
+anova(fit)
+
+sumLiking = summarySE(dLiking,
+                measurevar="value",
+                groupvars="variable")
+sumLiking
+model = lm(value ~ variable + Sex + Race + Age + (1|ID), data=dLiking)
+leastsquare = lsmeans(model,
+                     pairwise ~ variable,
+                      adjust="tukey")
+
+cld(leastsquare,
+    alpha=.05, 
+    Letters=letters)
+
+
+##Additional graph. Need an additional graph to illustrate the results from Table 4 for Chip Type, a bar graph with standard deviations of the ratings for each chip type.
+
+pd = position_dodge(.2)
+
+p1<-ggplot(sumFatty, aes(x = variable,
+                y=value)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold",size =11)) +
+    scale_color_manual(values = "black")+ggtitle("Fatty")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("Corn oil concentration")+ylab("")+theme(legend.position = c(0.2, 0.8))+
+annotate(geom="text", x=3, y=2.82, label="bc", color="black")+
+annotate(geom="text", x=4, y=3.03, label="c", color="black")+
+annotate(geom="text", x=2, y=2.68, label="b", color="black")+annotate(geom="text", x=1, y=2.35, label="a", color="black")+ coord_flip()+
+  scale_x_discrete(limits=c("2.5% (NoFA)","5% (NoFA)","2.5% (0.2% palmitic acid)","5% (0.2% palmitic acid)"))
+
+
+p4<-ggplot(sumLiking, aes(x=variable,
+                y=value)) +
+    geom_errorbar(aes(ymin=value-se,
+                      ymax=value+se),
+                   width=.2, size=0.7, position=pd) +
+    geom_point(shape=15, size=4, position=pd) +
+    theme_bw()+
+    theme(
+          axis.title.y = element_text(vjust= 1.8),
+          axis.title.x = element_text(vjust= -0.5),
+          axis.title = element_text(face = "bold", size =11)) +
+    scale_color_manual(values = "black")+ggtitle("Liking")+ theme(plot.title = element_text(lineheight=.8, face="bold", hjust = 0.5)) +xlab("Corn oil concentration")+ylab("Sensory ratings, visual analog scale") +theme(legend.position = c(0.2, 0.8))+
+annotate(geom="text", x=3, y=4.14, label="a", color="black")+
+annotate(geom="text", x=4, y=4.37, label="ab", color="black")+
+annotate(geom="text", x=2, y=4.57, label="b", color="black")+annotate(geom="text", x=1, y=4.94, label="c", color="black")+coord_flip()+
+  scale_x_discrete(limits=c("2.5% (NoFA)","5% (NoFA)","2.5% (0.2% palmitic acid)","5% (0.2% palmitic acid)"))
+
+
+#show only Fatty and Liking
+grid.arrange(p1, p4,ncol = 1)
+
+postscript(colormodel="cmyk")
+ggsave(filename ='ForPAtabacco19.jpeg', grid.arrange(p1, p4,ncol = 1),  width = 11, height = 12, units ="cm",dpi = 1200, device='jpeg', limitsize = TRUE)
+dev.off()
+
+
+```
+
+
+
+```{r include=FALSE, echo=FALSE}
+##2018_12_12, generated pheno files for GWAS
+df<-read.csv("qry_Lin2018_09.csv", header=T)
+dat2 <-df %>% 
+ as_tibble() %>%
+  mutate(Chip_Fatty_reg = (Chip_1_Fatty +
+                            Chip_4_Fatty)/2)
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Fatty_low = (Chip_2_Fatty +
+                            Chip_3_Fatty)/2)
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Crispy_reg = (Chip_1_Crispy +                         Chip_4_Crispy)/2)
+
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Crispy_low = (Chip_2_Crispy +
+                            Chip_3_Crispy)/2)
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Salty_reg = (Chip_1_Salty +                         Chip_4_Salty)/2)
+
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Salty_low = (Chip_2_Salty +
+                            Chip_3_Salty)/2)
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Like_reg = (Chip_1_Like +                         Chip_4_Like)/2)
+
+dat2<-dat2 %>% 
+ as_tibble() %>%
+  mutate(Chip_Like_low = (Chip_2_Like +
+                            Chip_3_Like)/2)
+
+
+d <- dat2 %>%
+  select(UniqueID, TotalCorrect,
+            Correct_FatFirst,
+            Correct_FatSecond,
+            Pyrophosphate_Sweet,
+            Pyrophosphate_Salty,
+            Pyrophosphate_Sour,
+            Pyrophosphate_Bitter,
+            Pyrophosphate_Burn,
+            Pyrophosphate_Like,
+            Pyrophosphate_Intense,
+            Sucralose_Sweet,
+            Sucralose_Salty,
+            Sucralose_Sour,
+            Sucralose_Bitter,
+            Sucralose_Burn,
+            Sucralose_Like,
+            Sucralose_Intense,
+            Odor_1_Like,
+            Odor_1_Intense,
+            Odor_2_Like,
+            Odor_2_Intense,
+            Menthol_Sweet,
+            Menthol_Salty,
+            Menthol_Sour,
+            Menthol_Bitter,
+            Menthol_Burn,
+            Menthol_Cool,
+            Menthol_Liking,
+            Menthol_Intense,
+            Capsaicin_Sweet,
+            Capsaicin_Salty,
+            Capsaicin_Sour,
+            Capsaicin_Bitter,
+            Capsaicin_Burn,
+            Capsaicin_Cool,
+            Capsaicin_Liking,
+            Capsaicin_Intense,
+            X2.5.CornOilNoFA_Fatty,
+            X2.5.CornOilNoFA_Salty,
+            X2.5.CornOilNoFA_Crispy,
+            X2.5.CornOilNoFA_Liking,
+            X15.CornOilNoFA_Fatty,
+            X15.CornOilNoFA_Salty,
+            X15.CornOilNoFA_Crispy,
+            X15.CornOilNoFA_Liking,
+            X5.CornOilNoFA_Fatty,
+            X5.CornOilNoFA_Salty,
+            X5.CornOilNoFA_Crispy,
+            X5.CornOilNoFA_Liking,
+            X10.CornOilNoFA_Fatty,
+            X10.CornOilNoFA_Salty,
+            X10.CornOilNoFA_Crispy,
+            X10.CornOilNoFA_Liking,
+            X5.CornOil_02.Palmitic_Fatty,
+            X5.CornOil_02.Palmitic_Salty,
+            X5.CornOil_02.Palmitic_Crispy,
+            X5.CornOil_02.Palmitic_Liking,
+            X2.5.CornOil_02.Palmitic_Fatty,
+            X2.5.CornOil_02.Palmitic_Salty,
+            X2.5.CornOil_02.Palmitic_Crispy,
+            X2.5.CornOil_02.Palmitic_Liking,
+            Water_Cool1,
+            Sucrose_Cool2,
+            NaCl_Cool3,
+            PTC_Cool9,
+            PTC_Bitter9,
+            PTC_Intense9,
+            PTC_Like9,
+            Stevia_Like17,
+            Sucrose_Like2,
+            Chip_Fatty_reg,
+            Chip_Fatty_low,
+            Chip_Crispy_reg,
+            Chip_Crispy_low,
+            Chip_Salty_reg,
+            Chip_Salty_low,
+            Chip_Like_reg,
+            Chip_Like_low
+            )
+
+#d1<-aggregate(d[,-1], by=d["UniqueID"], FUN=mean), not working when contain NA for one UniqueID, the mean return to NA!!!!!!!
+
+d1 <- d%>%
+  group_by(UniqueID) %>%
+  summarise_at(vars(-UniqueID), funs(mean(., na.rm=TRUE)))
+
+subjectsforGWAS <- read.csv("subjectsforGWAS.csv", header=T)
+
+d2 <-d1[d1$UniqueID %in% subjectsforGWAS$UniqueID,]
+
+write.csv(d2, "Fatphenforgwas_2018_12_12.csv", row.names = F)
+
+#no genodata available for subjects tested in 2018
+```
+
+
+Figure 5. Allele effect of variants 10:8085050 near gene GATA3-AS1 (A) and 19:22476027 within the gene ZNF729 (B) on ratings of liking across types of potato chips. For both variants, participants with G allele rated higher liking for all potato chip types than did those with other allele. The standard residual scores for liking were calculated in the general linear model with covariates of sex, age, and 20 eigenvalues.
+```{r include=FALSE, echo=FALSE}
+###barplot for hits  10:8085050 and 19:22476027 crossing the concentrations
+geno<-read.csv("D:/Data/Humans/TwinsburgProject/Fat_2019/ProgressReportDraft/R_data/Fig5/hitgeno.ped.csv", header=T)
+trait<-read.delim("D:/Data/Humans/TwinsburgProject/Fat_2019/ProgressReportDraft/R_data/Fig5/phenotwcornoil.txt")[c(2,19:42)]
+covar<-read.delim("D:/Data/Humans/TwinsburgProject/Fat_2019/ProgressReportDraft/R_data/Fig5/covarcornoil.txt", header=F)[c(2, 3:24)]
+colnames(covar)<-c("IID", "sex", "age", "E1", "E2","E3","E4","E5","E6","E7","E8","E9","E10","E11","E12","E13","E14","E15","E16","E17","E18","E19","E20")
+df<-merge(merge(geno,trait, by="IID"), covar, by="IID")[c(1:3,7,11,15,19,23, 27:49)]
+
+##GATA3-AS1
+df$X25CornOilNoFA_Liking_2<-rstandard(lm(X25CornOilNoFA_Liking~., data=df[c(4,10:31)]))
+df$X15CornOilNoFA_Liking_2<-rstandard(lm(X15CornOilNoFA_Liking~., data=df[c(5,10:31)]))
+df$X5CornOilNoFA_Liking_2<-rstandard(lm(X5CornOilNoFA_Liking~., data=df[c(6,10:31)]))
+df$X10CornOilNoFA_Liking_2<-rstandard(lm(X10CornOilNoFA_Liking~., data=df[c(7,10:31)]))
+df$X5CornOil_02Palmitic_Liking_2<-rstandard(lm(X5CornOil_02Palmitic_Liking~., data=df[c(8,10:31)]))
+df$X25CornOil_02Palmitic_Liking_2<-rstandard(lm(X25CornOil_02Palmitic_Liking~., data=df[c(9,10:31)]))
+
+
+summary(lm(X25CornOilNoFA_Liking~., data=df[c(2,4,10:11)]))
+summary(lm(X15CornOilNoFA_Liking~., data=df[c(2,5,10:11)]))
+summary(lm(X5CornOilNoFA_Liking~., data=df[c(2,6,10:11)]))
+summary(lm(X10CornOilNoFA_Liking~., data=df[c(2,7,10:11)]))
+summary(lm(X5CornOil_02Palmitic_Liking~., data=df[c(2,8,10:11)]))
+summary(lm(X25CornOil_02Palmitic_Liking~., data=df[c(2,9,10:11)]))
+
+
+
+df1 <-df[c(1:2,32:37)]%>%
+  gather(variable, value, -IID, -X10.8085050)%>%
+  summarySE(measurevar="value", 
+                groupvars=c("variable", "X10.8085050"))
+
+df1 <- transform(df1,
+                 variable = factor(variable, levels = c("X25CornOilNoFA_Liking_2", 
+                                                        "X5CornOilNoFA_Liking_2", 
+                                                        "X10CornOilNoFA_Liking_2",
+                                                        "X15CornOilNoFA_Liking_2",
+                                                        "X25CornOil_02Palmitic_Liking_2",
+                                                        "X5CornOil_02Palmitic_Liking_2")))
+
+df1$sd[df1$value<0]<--(df1$sd)
+p<- ggplot(df1, aes(x=X10.8085050, y=value, fill=variable)) + 
+  geom_bar(stat="identity", color="black", 
+           position=position_dodge()) +
+  geom_errorbar(aes(ymin=value, ymax=value+sd/sqrt(213)), width=.001,
+                position=position_dodge(.9)) +
+  ylab("Rating score (liking)")+xlab("10:8085050 near GATA3-AS1")
+
+p1<-p+scale_fill_manual(name = "legend", values = c("X25CornOilNoFA_Liking_2" = "grey", "X5CornOilNoFA_Liking_2"= "grey", "X10CornOilNoFA_Liking_2" = "grey","X15CornOilNoFA_Liking_2"= "grey", "X25CornOil_02Palmitic_Liking_2" = "darkblue", "X5CornOil_02Palmitic_Liking_2"= "darkblue"), labels = c("2.5%NoFA", 
+                                                              "5.0%NoFA", 
+                                                              "10%NoFA",
+                                                              "15%NoFA",
+                                                              "2.5%+0.2%FA",
+                                                              "5.0%+0.2%FA"))+
+  theme_bw()+ theme_linedraw() + theme_light()+ theme_classic()+theme(legend.position = "none")+theme(text = element_text(size=20))
+
+##ZNF729
+summary(lm(X25CornOilNoFA_Liking~., data=df[c(3,4,10:11)]))
+summary(lm(X15CornOilNoFA_Liking~., data=df[c(3,5,10:11)]))
+summary(lm(X5CornOilNoFA_Liking~., data=df[c(3,6,10:11)]))
+summary(lm(X10CornOilNoFA_Liking~., data=df[c(3,7,10:11)]))
+summary(lm(X5CornOil_02Palmitic_Liking~., data=df[c(3,8,10:11)]))
+summary(lm(X25CornOil_02Palmitic_Liking~., data=df[c(3,9,10:11)]))
+
+df2 <-df[c(1,3,32:37)]%>%
+  gather(variable, value, -IID, -X19.22476027)%>%
+  summarySE(measurevar="value", 
+               groupvars=c("variable", "X19.22476027"))
+
+df2 <- transform(df2,
+                 variable = factor(variable, levels = c("X25CornOilNoFA_Liking_2", 
+                                                        "X5CornOilNoFA_Liking_2", 
+                                                        "X10CornOilNoFA_Liking_2",
+                                                        "X15CornOilNoFA_Liking_2",
+                                                        "X25CornOil_02Palmitic_Liking_2",
+                                                        "X5CornOil_02Palmitic_Liking_2")))
+
+df2$sd[df2$value<0]<--(df2$sd)
+p<- ggplot(df2, aes(x=X19.22476027, y=value, fill=variable)) + 
+  geom_bar(stat="identity", color="black", 
+           position=position_dodge()) +
+  geom_errorbar(aes(ymin=value, ymax=value+sd/sqrt(213)), width=.001,
+                position=position_dodge(.9)) +
+  ylab("Rating score (liking)")+xlab("19:22476027@ZNF729")
+
+
+scaleFUN <- function(x) sprintf("%.1f", x)
+
+p2<-p+scale_fill_manual(name = "Tastants from\n left to right for\n each genotype", values = c("X25CornOilNoFA_Liking_2" = "darkgrey", "X5CornOilNoFA_Liking_2"= "darkgrey", "X10CornOilNoFA_Liking_2" = "darkgrey","X15CornOilNoFA_Liking_2"= "darkgrey", "X25CornOil_02Palmitic_Liking_2" = "darkblue", "X5CornOil_02Palmitic_Liking_2"= "darkblue"), labels = c("2.5%NoFA", 
+                                                              "5.0%NoFA", 
+                                                              "10%NoFA",
+                                                              "15%NoFA",
+                                                              "2.5%+0.2%FA",
+                                                              "5.0%+0.2%FA"))+
+  theme_bw()+ theme_linedraw() + theme_light()+ theme_classic()+theme(text = element_text(size=20))+scale_y_continuous(labels=scaleFUN)
+
+
+
+p<-cowplot::plot_grid(
+  p1,
+  p2,
+  nrow = 2, labels=c("A", "B"))
+
+postscript(colormodel="cmyk")
+ggsave(filename ='Figure_5_genoeffect.tif', p,  width = 15.5, height = 26, units ="cm",dpi = 1200, device='tiff', limitsize = TRUE,  compression = "lzw")
+dev.off()
+
+
+```
+
+
+
+
